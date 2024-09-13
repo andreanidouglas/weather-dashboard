@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - 8080:8080
+
+  frontend:
+    image: rtsp/lighttpd:latest
+    volumes:
+      - ./view/src:/var/www/html:ro
+    ports:
+      - 8081:80
