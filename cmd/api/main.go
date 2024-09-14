@@ -81,7 +81,7 @@ func main() {
 	w := MyHandler{}
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://api:8001", "http://api:8080", "http://api:8081", "http://api:8080/"},
+		AllowedOrigins:   []string{""},
 		AllowCredentials: false,
 		Debug:            true,
 		AllowedHeaders:   []string{"hx-current-url", "hx-request"},
