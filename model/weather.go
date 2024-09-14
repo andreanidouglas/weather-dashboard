@@ -2,10 +2,13 @@ package model
 
 type Weather struct {
 	City        string
-	CurrentTemp float32
-	MaxTemp     float32
-	MinTemp     float32
-	FeelsLike   float32
+	Country     string
+	CurrentTemp float64
+	MaxTemp     float64
+	MinTemp     float64
+	FeelsLike   float64
+	Condition   string
+	Humidity    float64
 }
 
 type WeatherRequest struct {

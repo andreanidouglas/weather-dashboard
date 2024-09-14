@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/andreanidouglas/weather-dashboard/model"
+	"github.com/andreanidouglas/weather-dashboard/template"
+	"github.com/rs/cors"
 )
 
 type MyHandler struct {
@@ -15,36 +15,51 @@ type MyHandler struct {
 
 func (h MyHandler) HandleGet(w http.ResponseWriter, req *http.Request) {
 
-	var weatherRequest model.WeatherRequest
-	weatherDecoder := json.NewDecoder(req.Body)
-	weatherDecoder.Decode(&weatherRequest)
+	weatherResponse := model.Weather{
 
-	weatherResponse := []model.Weather{
-		{
-			CurrentTemp: 32.2,
-			MaxTemp:     34.6,
-			MinTemp:     23.5,
-			FeelsLike:   33.0,
-			City:        "São Paulo",
-		},
-		{
-			CurrentTemp: 12.3,
-			MaxTemp:     15.4,
-			MinTemp:     7.3,
-			FeelsLike:   11,
-			City:        "London",
-		},
-		{
-			CurrentTemp: 34.5,
-			MaxTemp:     34.9,
-			MinTemp:     30.1,
-			FeelsLike:   38.3,
-			City:        "Canberra",
-		},
+		CurrentTemp: 32.2,
+		MaxTemp:     34.6,
+		MinTemp:     23.5,
+		FeelsLike:   33.0,
+		City:        "São Paulo",
+		Country:     "Brazil",
+		Condition:   "Overcast",
+		Humidity:    0.33,
 	}
-	w.Header().Add("content-type", "application/json")
-	weatherEncoder := json.NewEncoder(w)
-	weatherEncoder.Encode(weatherResponse)
+
+	component := template.Weather(weatherResponse)
+	component.Render(req.Context(), w)
+
+	// var weatherRequest model.WeatherRequest
+	// weatherDecoder := json.NewDecoder(req.Body)
+	// weatherDecoder.Decode(&weatherRequest)
+
+	// weatherResponse := []model.Weather{
+	// 	{
+	// 		CurrentTemp: 32.2,
+	// 		MaxTemp:     34.6,
+	// 		MinTemp:     23.5,
+	// 		FeelsLike:   33.0,
+	// 		City:        "São Paulo",
+	// 	},
+	// 	{
+	// 		CurrentTemp: 12.3,
+	// 		MaxTemp:     15.4,
+	// 		MinTemp:     7.3,
+	// 		FeelsLike:   11,
+	// 		City:        "London",
+	// 	},
+	// 	{
+	// 		CurrentTemp: 34.5,
+	// 		MaxTemp:     34.9,
+	// 		MinTemp:     30.1,
+	// 		FeelsLike:   38.3,
+	// 		City:        "Canberra",
+	// 	},
+	// }
+	// w.Header().Add("content-type", "application/json")
+	// weatherEncoder := json.NewEncoder(w)
+	// weatherEncoder.Encode(weatherResponse)
 
 }
 
@@ -62,17 +77,25 @@ func (h MyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	fmt.Println("Hello World")
 
 	w := MyHandler{}
 
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://api:8001", "http://api:8080", "http://api:8081", "http://api:8080/"},
+		AllowCredentials: false,
+		Debug:            true,
+		AllowedHeaders:   []string{"hx-current-url", "hx-request"},
+	})
+
+	handler := c.Handler(w)
+
 	s := &http.Server{
 		Addr:           "0.0.0.0:8080",
-		Handler:        w,
+		Handler:        handler,
 		ReadTimeout:    300 * time.Millisecond,
 		WriteTimeout:   300 * time.Millisecond,
 		MaxHeaderBytes: 10 << 10,
 	}
-
+	log.Print("Running server at: 8080")
 	log.Fatal(s.ListenAndServe())
 }

@@ -2,6 +2,8 @@ FROM golang:1.23.1-bookworm AS build
 WORKDIR /app
 ENV CGO_ENABLED=0
 COPY . .
+RUN go install github.com/a-h/templ/cmd/templ@latest
+RUN templ generate
 RUN go build -o server cmd/api/main.go
 
 FROM debian:bookworm-slim

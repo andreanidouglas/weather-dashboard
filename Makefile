@@ -1,7 +1,8 @@
-all: tidy server view
+all: server view
 
 server: cmd/api/main.go
 	go mod tidy
+	templ generate
 	go build -o out/$@ $<
 
 view: view/input.css

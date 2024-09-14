@@ -5,9 +5,17 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title></title>
         <link href="./css/style.css" rel="stylesheet" />
+
         <script src="./js/htmx.min.js"></script>
+        <script>
+            htmx.config.selfRequestsOnly = false;
+        </script>
     </head>
     <body>
-        <h1 class="text-3xl font-bold underline">Hello world!</h1>
+        <div
+            hx-trigger="load"
+            hx-get="http://api:8080/"
+            class="relative flex min-h-screen flex-col justify-center bg-gray-50 py-2"
+        ></div>
     </body>
 </html>
