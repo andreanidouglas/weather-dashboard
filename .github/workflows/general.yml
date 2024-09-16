@@ -25,7 +25,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v4
         with: 
-          node-version: "lts"
+          node-version: "lts/hydrogen"
       - name: run tailwindcss
         run: | 
           cd view && npx tailwindcss -i ./input.css -i ./src/css/style.css
