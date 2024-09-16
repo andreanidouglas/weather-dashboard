@@ -23,11 +23,13 @@ jobs:
           go build -v ./cmd/api/main.go
 
       - name: setup node
-        uses: setup-node@v4
-        with: node-version: 'lts'
+        uses: actions/setup-node@v4
+        with: 
+          node-version: "lts/hydrogen"
       - name: run tailwindcss
-        run: | 
-          cd view && npx tailwindcss -i ./input.css -i ./src/css/style.css
+        run: |
+          cd view && npm ci
+          npx tailwindcss -i ./input.css -o ./src/css/style.css
 
 
           
