@@ -1,0 +1,24 @@
+name: build go project
+
+on: [push, pull_request]
+
+jobs:
+  build: 
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout/@v4
+      - name: Setup go
+        uses: actions/setup-go/@v5
+        with:
+          go-version: 1.23.1
+      - name: Install dependencies
+        run: |
+          go get .
+          go get github.com/a-h/templ/cmd/templ@latest
+          go install github.com/a-h/templ/cmd/templ@latest
+      - name: build
+        run: |
+          templ generate
+          go build -v ./cmd/api/main.go
+          
