@@ -17,8 +17,17 @@ jobs:
           go get github.com/a-h/templ/cmd/templ@latest
           go install github.com/a-h/templ/cmd/templ@latest
           go mod tidy
-      - name: build
+      - name: build go project
         run: |
           templ generate
           go build -v ./cmd/api/main.go
+
+      - name: setup node
+        uses: setup-node@v4
+        with: node-version: 'lts'
+      - name: run tailwindcss
+        run: | 
+          cd view && npx tailwindcss -i ./input.css -i ./src/css/style.css
+
+
           
