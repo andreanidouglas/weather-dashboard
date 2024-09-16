@@ -27,7 +27,8 @@ jobs:
         with: 
           node-version: "lts/hydrogen"
       - name: run tailwindcss
-        run: | 
+        run: |
+          npm ci
           cd view && npx tailwindcss -i ./input.css -i ./src/css/style.css
 
 
