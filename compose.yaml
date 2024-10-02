@@ -1,6 +1,8 @@
 services:
   api:
     image: andreanidouglas/weather-dashboard-api:latest
+    env:
+      - STANDALONE: false
     ports:
       - 8080:8080
 
