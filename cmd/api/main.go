@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/andreanidouglas/weather-dashboard/model"
@@ -18,15 +17,17 @@ type MyHandler struct {
 
 func (h *MyHandler) HandleGet(w http.ResponseWriter, req *http.Request) {
 
-	log.Printf("%v", req.URL.Path)
+	log.Printf("GET %v", req.URL.Path)
 
-	//switch req.
+	//h.mux.HandleFunc("/api/", h.HandleWeather)
 
-	if strings.HasPrefix(req.URL.Path, "/api") {
-		h.HandleWeather(w, req)
-	} else {
-		h.HandleStatic(w, req)
-	}
+	//	h.mux.HandleFunc("GET /api/{id}", h.HandleWeather)
+
+	// if strings.HasPrefix(req.URL.Path, "/api") {
+	// 	h.HandleWeather(w, req)
+	// } else {
+	// 	h.HandleStatic(w, req)
+	// }
 }
 
 func (h *MyHandler) HandleStatic(w http.ResponseWriter, req *http.Request) {
@@ -56,7 +57,7 @@ func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h MyHandler) HandlePost(w http.ResponseWriter, req *http.Request) {
-
+	log.Printf("POST %v", req.URL.Path)
 }
 
 func (h MyHandler) FileServer(root http.FileSystem, w http.ResponseWriter, req *http.Request) {
@@ -65,15 +66,16 @@ func (h MyHandler) FileServer(root http.FileSystem, w http.ResponseWriter, req *
 	fs.ServeHTTP(w, req)
 }
 
-func (h MyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+// func (h MyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	switch req.Method {
-	case http.MethodGet:
-		h.HandleGet(w, req)
-	case http.MethodPost:
-		h.HandlePost(w, req)
-	}
-}
+// 	//h.mux.Handle("GET /", h)
+// 	// switch req.Method {
+// 	// case http.MethodGet:
+// 	// 	h.HandleGet(w, req)
+// 	// case http.MethodPost:
+// 	// 	h.HandlePost(w, req)
+// 	// }
+// }
 
 func main() {
 
@@ -83,20 +85,22 @@ func main() {
 	if standalone_arg == "true" {
 		standalone = true
 	}
-	w := MyHandler{
-		standalone: standalone,
-	}
 
 	log.Printf("Mode: %v", standalone)
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{""},
 		AllowCredentials: false,
-		Debug:            true,
-		AllowedHeaders:   []string{"hx-current-url", "hx-request"},
+		Debug:            false,
+		//AllowedHeaders:   []string{"hx-current-url", "hx-request"},
 	})
 
-	handler := c.Handler(w)
+	mux := http.NewServeMux()
+
+	w := MyHandler{
+		standalone: standalone,
+	}
+	handler := c.Handler(mux)
 
 	s := &http.Server{
 		Addr:           "0.0.0.0:8080",
@@ -104,6 +108,11 @@ func main() {
 		ReadTimeout:    300 * time.Millisecond,
 		WriteTimeout:   300 * time.Millisecond,
 		MaxHeaderBytes: 10 << 10,
+	}
+
+	mux.HandleFunc("GET /api/", w.HandleWeather)
+	if w.standalone {
+		mux.Handle("GET /", http.FileServer(http.Dir("./view/src")))
 	}
 
 	s.ErrorLog = log.Default()
