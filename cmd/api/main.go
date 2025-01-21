@@ -19,16 +19,6 @@ type MyHandler struct {
 func (h *MyHandler) HandleGet(w http.ResponseWriter, req *http.Request) {
 
 	log.Printf("GET %v", req.URL.Path)
-
-	//h.mux.HandleFunc("/api/", h.HandleWeather)
-
-	//	h.mux.HandleFunc("GET /api/{id}", h.HandleWeather)
-
-	// if strings.HasPrefix(req.URL.Path, "/api") {
-	// 	h.HandleWeather(w, req)
-	// } else {
-	// 	h.HandleStatic(w, req)
-	// }
 }
 
 func (h *MyHandler) HandleStatic(w http.ResponseWriter, req *http.Request) {
@@ -41,34 +31,31 @@ func (h *MyHandler) HandleStatic(w http.ResponseWriter, req *http.Request) {
 
 func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 
-	city := "Sao Paulo"
-	cityRequest := model.WeatherRequest {
+	log.Printf("Handle weather for: %s", req.PathValue("city"))
+	city := req.PathValue("city")
+	if city == "" {
+		w.WriteHeader(400)
+		w.Write([]byte("Need city parameter for API"))
+		return
+	}
+	cityRequest := model.WeatherRequest{
 		City: city,
 	}
+	
 	weather, err := model.GetWeather(cityRequest, h.apiContext)
 	if err != nil {
-
 		w.WriteHeader(500)
 		w.Write([]byte("Could not get weather request"))
 		return
 	}
 
-/*
-	weatherResponse := model.Weather{
-
-		CurrentTemp: 32.2,
-		MaxTemp:     34.6,
-		MinTemp:     23.5,
-		FeelsLike:   33.0,
-		City:        "São Paulo",
-		Country:     "Brazil",
-		Condition:   "Overcast",
-		Humidity:    0.33,
-	}
-*/
 	component := template.Weather(*weather)
-	component.Render(req.Context(), w)
-
+	err = component.Render(req.Context(), w)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Printf("Error rendering template %v", err)
+		return
+	}
 }
 
 func (h MyHandler) HandlePost(w http.ResponseWriter, req *http.Request) {
@@ -80,17 +67,6 @@ func (h MyHandler) FileServer(root http.FileSystem, w http.ResponseWriter, req *
 	fs := http.FileServer(root)
 	fs.ServeHTTP(w, req)
 }
-
-// func (h MyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-
-// 	//h.mux.Handle("GET /", h)
-// 	// switch req.Method {
-// 	// case http.MethodGet:
-// 	// 	h.HandleGet(w, req)
-// 	// case http.MethodPost:
-// 	// 	h.HandlePost(w, req)
-// 	// }
-// }
 
 func main() {
 
@@ -112,7 +88,6 @@ func main() {
 		AllowedOrigins:   []string{""},
 		AllowCredentials: false,
 		Debug:            false,
-		//AllowedHeaders:   []string{"hx-current-url", "hx-request"},
 	})
 
 	mux := http.NewServeMux()
@@ -127,11 +102,11 @@ func main() {
 		Addr:           "0.0.0.0:8080",
 		Handler:        handler,
 		ReadTimeout:    300 * time.Millisecond,
-		WriteTimeout:   300 * time.Millisecond,
+		WriteTimeout:   900 * time.Millisecond,
 		MaxHeaderBytes: 10 << 10,
 	}
 
-	mux.HandleFunc("GET /api/", w.HandleWeather)
+	mux.HandleFunc("GET /api/{city}", w.HandleWeather)
 	if w.standalone {
 		mux.Handle("GET /", http.FileServer(http.Dir("./view/src")))
 	}
