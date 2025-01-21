@@ -13,6 +13,7 @@ import (
 
 type MyHandler struct {
 	standalone bool
+	apiContext model.ApiContext
 }
 
 func (h *MyHandler) HandleGet(w http.ResponseWriter, req *http.Request) {
@@ -39,6 +40,20 @@ func (h *MyHandler) HandleStatic(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
+
+	city := "Sao Paulo"
+	cityRequest := model.WeatherRequest {
+		City: city,
+	}
+	weather, err := model.GetWeather(cityRequest, h.apiContext)
+	if err != nil {
+
+		w.WriteHeader(500)
+		w.Write([]byte("Could not get weather request"))
+		return
+	}
+
+/*
 	weatherResponse := model.Weather{
 
 		CurrentTemp: 32.2,
@@ -50,8 +65,8 @@ func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 		Condition:   "Overcast",
 		Humidity:    0.33,
 	}
-
-	component := template.Weather(weatherResponse)
+*/
+	component := template.Weather(*weather)
 	component.Render(req.Context(), w)
 
 }
@@ -80,6 +95,11 @@ func (h MyHandler) FileServer(root http.FileSystem, w http.ResponseWriter, req *
 func main() {
 
 	standalone_arg := os.Getenv("STANDALONE")
+	key := os.Getenv("API_KEY")
+
+	apiContext := model.ApiContext{
+		Key: key,
+	}
 
 	standalone := false
 	if standalone_arg == "true" {
@@ -99,6 +119,7 @@ func main() {
 
 	w := MyHandler{
 		standalone: standalone,
+		apiContext: apiContext,
 	}
 	handler := c.Handler(mux)
 
