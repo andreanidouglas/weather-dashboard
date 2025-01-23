@@ -21,6 +21,7 @@ type Weather struct {
 
 type WeatherRequest struct {
 	City string `json:"city"`
+	Fahrenheit bool `json:"fahreinheit`
 }
 
 type ApiContext struct {
@@ -33,7 +34,12 @@ func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
 
 	log.Printf("Requested weather for: %s", req.City)
 	var weather = &OpenWeather{}
-	url := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&units=metric&appid=%s", url.QueryEscape(req.City), apiContext.Key)
+	units := "metric"
+	if req.Fahrenheit {
+		units = "imperial"
+	}
+
+	url := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&units=%s&appid=%s", url.QueryEscape(req.City), units, apiContext.Key)
 
 	res, err := http.Get(url)
 	if err != nil {

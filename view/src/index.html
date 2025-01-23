@@ -9,13 +9,18 @@
         <script src="./js/htmx.min.js"></script>
     </head>
     <body class="bg-gray-100 py-8 px-96">
+        <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" value="yes" class="sr-only peer" name="fahrenheit" id="fahrenheit">
+            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Fahrenheit</span>
+        </label>
         <div class="grid grid-cols-3 gap-4">
-            <div hx-trigger="load, every 30s" hx-get="/api/Sao%20Paulo"></div>
-            <div hx-trigger="load, every 30s" hx-get="/api/New%20York"></div>
-            <div hx-trigger="load, every 30s" hx-get="/api/Dubai"></div>
-            <div hx-trigger="load, every 30s" hx-get="/api/Montreal"></div>
-            <div hx-trigger="load, every 30s" hx-get="/api/Perth"></div>
-            <div hx-trigger="load, every 30s" hx-get="/api/Johannesburg"></div>
+            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Sao%20Paulo" hx-include="[name='fahrenheit']"></div>
+            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/New%20York" hx-include="[name='fahrenheit']"></div>
+            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Dubai" hx-include="[name='fahrenheit']"></div>
+            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Montreal" hx-include="[name='fahrenheit']"></div>
+            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Perth" hx-include="[name='fahrenheit']"></div>
+            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Johannesburg" hx-include="[name='fahrenheit']"></div>
         </div>
     </body>
 </html>

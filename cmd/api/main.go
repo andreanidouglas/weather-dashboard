@@ -31,8 +31,15 @@ func (h *MyHandler) HandleStatic(w http.ResponseWriter, req *http.Request) {
 
 func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 
-	log.Printf("Handle weather for: %s", req.PathValue("city"))
 	city := req.PathValue("city")
+	fahrenheit := req.FormValue("fahrenheit")
+	fahrenheit_select := true
+	if len(fahrenheit) == 0 {
+		fahrenheit_select = false
+	}
+		
+	log.Printf("Handle weather for: %s with fahreinheit: %v", req.PathValue("city"), fahrenheit)
+	
 	if city == "" {
 		w.WriteHeader(400)
 		w.Write([]byte("Need city parameter for API"))
@@ -40,6 +47,7 @@ func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 	}
 	cityRequest := model.WeatherRequest{
 		City: city,
+		Fahrenheit: fahrenheit_select,
 	}
 	
 	weather, err := model.GetWeather(cityRequest, h.apiContext)
@@ -49,7 +57,7 @@ func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	component := template.Weather(*weather)
+	component := template.Weather(*weather, cityRequest)
 	err = component.Render(req.Context(), w)
 	if err != nil {
 		w.WriteHeader(500)

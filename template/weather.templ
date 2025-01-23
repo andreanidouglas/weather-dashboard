@@ -5,17 +5,27 @@ import (
     "github.com/andreanidouglas/weather-dashboard/model"
 )
 
-templ Weather(weather model.Weather) {
+templ Weather(weather model.Weather, request model.WeatherRequest) {
     <div class="relative bg-gray-300 pt-4 pb-4 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-8">
       <div class="items-center text-center text-lg text-pretty text-blue-900">
         <p>{weather.City}<br/>{weather.Country}</p>
       </div>
       <div class="grid grid-cols-1 divide-y">
         <div class="text-center text-4xl py-3 text-blue-950">
-            {strconv.FormatFloat(weather.CurrentTemp, 'f', 1, 32)}°C
+            {strconv.FormatFloat(weather.CurrentTemp, 'f', 1, 32)}
+            if request.Fahrenheit {
+            ºF
+            } else {
+            ºC
+            }
         </div>
         <div class="text-center text-gray-600">
-            Feels like: {strconv.FormatFloat(weather.FeelsLike, 'f', 1, 32)}°C; {weather.Condition}<br/>
+            Feels like: {strconv.FormatFloat(weather.FeelsLike, 'f', 1, 32)}
+            if request.Fahrenheit {
+            ºF
+            } else {
+            ºC
+            }; {weather.Condition}<br/>
         </div>
         <div class="text-gray-600 text-center">
             Humidity: {strconv.FormatFloat(weather.Humidity, 'f', 1, 32)}%
