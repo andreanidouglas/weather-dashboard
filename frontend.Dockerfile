@@ -3,7 +3,7 @@ COPY . /app/
 
 WORKDIR /app/view
 RUN npm ci
-RUN npx tailwindcss -i input.css -o src/css/style.css
+RUN npx tailwindcss -i input.css -o src/css/style.css --minify
 RUN ls /app/
 
 FROM rtsp/lighttpd:latest
