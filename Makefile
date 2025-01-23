@@ -15,9 +15,5 @@ clean:
 	rm view/src/css/style.css
 
 docker-build: api.Dockerfile frontend.Dockerfile
-	docker build . -f api.Dockerfile -t ghcr.io/andreanidouglas/weather-dashboard:api_latest
-	docker build . -f frontend.Dockerfile -t ghcr.io/andreanidouglas/weather-dashboard:frontend_latest
-
-docker-push: docker-build
-	docker push ghcr.io/andreanidouglas/weather-dashboard:api_latest
-	docker push ghcr.io/andreanidouglas/weather-dashboard:frontend_latest
+	docker build . -f api.Dockerfile -t andreanidouglas/weather-dashboard-api:latest
+	docker build . -f frontend.Dockerfile -t andreanidouglas/weather-dashboard-frontend:latest
