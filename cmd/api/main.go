@@ -8,7 +8,6 @@ import (
 
 	"github.com/andreanidouglas/weather-dashboard/model"
 	"github.com/andreanidouglas/weather-dashboard/template"
-	"github.com/rs/cors"
 )
 
 type MyHandler struct {
@@ -16,28 +15,18 @@ type MyHandler struct {
 	apiContext model.ApiContext
 }
 
-func (h *MyHandler) HandleGet(w http.ResponseWriter, req *http.Request) {
-
-	log.Printf("GET %v", req.URL.Path)
-}
-
-func (h *MyHandler) HandleStatic(w http.ResponseWriter, req *http.Request) {
-
-	if !h.standalone {
-		log.Print("Serving static...")
-		h.FileServer(http.Dir("./view/src/"), w, req)
-	}
-}
-
+// HandleWeather will response HTTP requests to GET /api/<city>?params=foo 
+// to any http request with a valid HTML data
 func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 
 	city := req.PathValue("city")
+
+	// if url has param fahrenheit set, then serve the weather with imperial metric
 	fahrenheit := req.FormValue("fahrenheit")
 	fahrenheit_select := true
 	if len(fahrenheit) == 0 {
 		fahrenheit_select = false
 	}
-		
 	log.Printf("Handle weather for: %s with fahreinheit: %v", req.PathValue("city"), fahrenheit)
 	
 	if city == "" {
@@ -57,6 +46,8 @@ func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+
+	// uses templ to render the template as HTML
 	component := template.Weather(*weather, cityRequest)
 	err = component.Render(req.Context(), w)
 	if err != nil {
@@ -66,20 +57,14 @@ func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (h MyHandler) HandlePost(w http.ResponseWriter, req *http.Request) {
-	log.Printf("POST %v", req.URL.Path)
-}
-
-func (h MyHandler) FileServer(root http.FileSystem, w http.ResponseWriter, req *http.Request) {
-	log.Printf("Got %v", root)
-	fs := http.FileServer(root)
-	fs.ServeHTTP(w, req)
-}
-
 func main() {
 
 	standalone_arg := os.Getenv("STANDALONE")
 	key := os.Getenv("API_KEY")
+
+	if len(key) == 0 {
+		log.Fatalf("Need API_KEY as environment variable")
+	}
 
 	apiContext := model.ApiContext{
 		Key: key,
@@ -90,37 +75,33 @@ func main() {
 		standalone = true
 	}
 
-	log.Printf("Mode: %v", standalone)
-
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{""},
-		AllowCredentials: false,
-		Debug:            false,
-	})
-
+	log.Printf("Mode standalone: %v", standalone)
+	
 	mux := http.NewServeMux()
 
 	w := MyHandler{
 		standalone: standalone,
 		apiContext: apiContext,
 	}
-	handler := c.Handler(mux)
 
 	s := &http.Server{
 		Addr:           "0.0.0.0:8080",
-		Handler:        handler,
-		ReadTimeout:    300 * time.Millisecond,
+		Handler:        mux,
+		ReadTimeout:    300 * time.Millisecond, // TODO: find better values for these
 		WriteTimeout:   900 * time.Millisecond,
 		MaxHeaderBytes: 10 << 10,
 	}
 
+	// serve GET requests. eg: GET /api/Sao%20Paulo?param=foo
 	mux.HandleFunc("GET /api/{city}", w.HandleWeather)
+
+	// if standalone env varilable is set, then serve static files from ./view
 	if w.standalone {
 		mux.Handle("GET /", http.FileServer(http.Dir("./view/src")))
 	}
 
 	s.ErrorLog = log.Default()
 	l := s.ErrorLog
-	l.Print("Running server at: 8080")
+	l.Print("Running server at: 0.0.0.0:8080")
 	l.Fatal(s.ListenAndServe())
 }

@@ -21,16 +21,17 @@ type Weather struct {
 
 type WeatherRequest struct {
 	City string `json:"city"`
-	Fahrenheit bool `json:"fahreinheit`
+	Fahrenheit bool `json:"fahreinheit"`
 }
 
 type ApiContext struct {
 	Key string
 }
 
-func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
 
-	//https://api.openweathermap.org/data/2.5/weather?q=Sao%20Paulo&units=metric&appid=<apiid>
+// GetWeather uses openweathermap api to fetch weather for a given city
+func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
+	// TODO: cache weather requests to aliviate API usage
 
 	log.Printf("Requested weather for: %s", req.City)
 	var weather = &OpenWeather{}
@@ -57,7 +58,7 @@ func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
 
 	resWeather := Weather{
 		City:        weather.Name,
-		Country:     "",
+		Country:     "", // TODO: find the country from the API
 		CurrentTemp: weather.Main.Temp,
 		MaxTemp:     weather.Main.TempMax,
 		MinTemp:     weather.Main.TempMin,
