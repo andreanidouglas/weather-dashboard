@@ -13,7 +13,7 @@ import (
 type MyHandler struct {
 	standalone bool
 	apiContext model.ApiContext
-	cache model.WeatherCache
+	cache *model.WeatherCache
 }
 
 // HandleWeather will response HTTP requests to GET /api/<city>?params=foo 
@@ -93,7 +93,7 @@ func main() {
 	w := MyHandler{
 		standalone: standalone,
 		apiContext: apiContext,
-		cache: cache,
+		cache: &cache,
 	}
 
 	s := &http.Server{
