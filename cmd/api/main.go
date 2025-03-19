@@ -13,6 +13,7 @@ import (
 type MyHandler struct {
 	standalone bool
 	apiContext model.ApiContext
+	cache model.WeatherCache
 }
 
 // HandleWeather will response HTTP requests to GET /api/<city>?params=foo 
@@ -38,18 +39,26 @@ func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 		City: city,
 		Fahrenheit: fahrenheit_select,
 	}
-	
-	weather, err := model.GetWeather(cityRequest, h.apiContext)
-	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte("Could not get weather request"))
-		return
+
+	ok, weather := h.cache.GetWeather(cityRequest.City, cityRequest.Fahrenheit)
+	if !ok {
+		log.Printf("Cache miss for %s", cityRequest.City)
+		weather_req, err := model.GetWeather(cityRequest, h.apiContext)
+		if err != nil {
+			w.WriteHeader(500)
+			w.Write([]byte("Could not get weather request"))
+			return
+		}
+
+		weather = weather_req
+		go h.cache.SetWeather(*weather_req, cityRequest.Fahrenheit)
+	} else {
+		log.Printf("Cache hit for %s", cityRequest.City)
 	}
-
-
+	
 	// uses templ to render the template as HTML
 	component := template.Weather(*weather, cityRequest)
-	err = component.Render(req.Context(), w)
+	err := component.Render(req.Context(), w)
 	if err != nil {
 		w.WriteHeader(500)
 		log.Printf("Error rendering template %v", err)
@@ -79,9 +88,12 @@ func main() {
 	
 	mux := http.NewServeMux()
 
+	cache := model.NewCache()
+
 	w := MyHandler{
 		standalone: standalone,
 		apiContext: apiContext,
+		cache: cache,
 	}
 
 	s := &http.Server{
