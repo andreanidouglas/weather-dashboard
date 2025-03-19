@@ -40,6 +40,10 @@ func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
 		units = "imperial"
 	}
 
+
+
+
+
 	url := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&units=%s&appid=%s", url.QueryEscape(req.City), units, apiContext.Key)
 
 	res, err := http.Get(url)
