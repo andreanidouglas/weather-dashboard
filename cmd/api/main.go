@@ -51,6 +51,8 @@ func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 		}
 
 		weather = weather_req
+		// TODO: if request city is changed by the API (eg Sao Paulo -> São Paulo)
+		//       the cache will always miss
 		go h.cache.SetWeather(*weather_req, cityRequest.Fahrenheit)
 	} else {
 		log.Printf("Cache hit for %s", cityRequest.City)

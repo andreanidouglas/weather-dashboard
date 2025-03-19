@@ -31,7 +31,6 @@ type ApiContext struct {
 
 // GetWeather uses openweathermap api to fetch weather for a given city
 func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
-	// TODO: cache weather requests to aliviate API usage
 
 	log.Printf("Requested weather for: %s", req.City)
 	var weather = &OpenWeather{}
@@ -39,10 +38,6 @@ func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
 	if req.Fahrenheit {
 		units = "imperial"
 	}
-
-
-
-
 
 	url := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&units=%s&appid=%s", url.QueryEscape(req.City), units, apiContext.Key)
 

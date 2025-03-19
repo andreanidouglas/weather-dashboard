@@ -6,6 +6,7 @@ import (
 )
 
 
+// Naive cache for Weather Requests
 type WeatherCache struct {
 	sync.RWMutex
 	weather map[string]weatherCacheValue
@@ -26,6 +27,7 @@ func NewCache() WeatherCache {
 
 }
 
+// Check the cache if already contain the city requested
 func (w* WeatherCache) GetWeather(city string, fahreinheit bool) (bool, *Weather) {
 	w.RLock()
 	defer w.RUnlock()
@@ -47,6 +49,7 @@ func (w* WeatherCache) GetWeather(city string, fahreinheit bool) (bool, *Weather
 
 }
 
+// Create a new entry on the cache
 func (w* WeatherCache) SetWeather(weather Weather, fahreinheit bool) {
 	weather_c := weather
 	weather_f := weather
