@@ -28,7 +28,7 @@ func NewCache() WeatherCache {
 
 func (w* WeatherCache) GetWeather(city string, fahreinheit bool) (bool, *Weather) {
 	w.RLock()
-	defer w.Unlock()
+	defer w.RUnlock()
 	weatherCache := w.weather[city]
 	if weatherCache.weather_c.City == ""  {
 		return false, nil 
