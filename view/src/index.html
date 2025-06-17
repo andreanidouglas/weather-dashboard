@@ -101,7 +101,7 @@
         <div class="grid grid-cols-3 gap-4" id="grid">
             <template x-for="city in cities"> 
 
-                <div :id="`${city.replaceAll(' ', '_').toLowerCase()}_v`" class="cities_c" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="`/api/${city}`" hx-include="[name='fahrenheit']"></div>
+                <div :id="`${city.replaceAll(' ', '_').toLowerCase()}_v`" class="cities_c" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="`api/${city}`" hx-include="[name='fahrenheit']"></div>
 
             </template>
             </div>
