@@ -7,20 +7,117 @@
         <link href="./css/style.css" rel="stylesheet" />
 
         <script src="./js/htmx.min.js"></script>
+       <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
     </head>
     <body class="bg-gray-100 py-8 px-96">
+        <div x-data="{f: {},
+           setState(ev) {
+                this.f = !this.f;
+                console.log('On change: ' + this.f);
+                localStorage.setItem('x_f', JSON.stringify(this.f));
+
+            },
+
+           init() {
+                let v = localStorage.getItem('x_f');
+                if (v) {
+                    console.log(v);
+                    this.f = JSON.parse(v);
+                } else {
+                    this.f = false;
+                    localStorage.setItem('x_f', JSON.stringify(false));
+                }
+
+                console.log('Init: ' + this.f);
+            }
+        }">
         <label class="inline-flex items-center cursor-pointer">
-            <input type="checkbox" value="yes" class="sr-only peer" name="fahrenheit" id="fahrenheit">
+            <input x-model='f' type="checkbox" value="yes" class="sr-only peer" name="fahrenheit" id="fahrenheit" @click="setState($event.target)">
             <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Fahrenheit</span>
         </label>
-        <div class="grid grid-cols-3 gap-4">
-            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Sao%20Paulo" hx-include="[name='fahrenheit']"></div>
-            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/New%20York" hx-include="[name='fahrenheit']"></div>
-            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Dubai" hx-include="[name='fahrenheit']"></div>
-            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Montreal" hx-include="[name='fahrenheit']"></div>
-            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Perth" hx-include="[name='fahrenheit']"></div>
-            <div hx-trigger="load, every 30s, change from:(#fahrenheit)" hx-get="/api/Johannesburg" hx-include="[name='fahrenheit']"></div>
         </div>
+
+        <div x-data="{ 
+            cities: [], 
+            cityInput: '',
+
+            setData() {
+                if (this.cityInput !== '') {
+
+                    const gotCity = this.cityInput;
+                    this.cities.push(cityInput.value);
+                    localStorage.setItem('x_cities', JSON.stringify(this.cities));
+                    this.cityInput='';
+                    $nextTick(() => {
+                            refresh_grid(gotCity);
+                        }
+                    );
+                }
+
+
+            },
+
+
+            remove() {
+                let idx = this.cities.indexOf(this.city);
+                this.cities.splice(idx, 1);
+                localStorage.setItem('x_cities', JSON.stringify(this.cities));
+                console.log(this.cities);
+                $nextTick(() => {
+                        let cvs = document.querySelectorAll('.cities_c');
+                        cvs.forEach((c) => {
+                           htmx.process(c)
+                        });
+
+                    }
+                );
+            },
+            init() {
+                let cities = localStorage.getItem('x_cities');
+                if (cities) {
+                    let ct = JSON.parse(cities);
+                    const al = ct.filter((v) => v);
+                    this.cities = al;
+                }
+                else {
+                    cities = ['Dubai', 'Montreal', 'Perth', 'Johannesburg'];
+                    localStorage.setItem('x_cities', JSON.stringify(cities));
+                }
+            },
+
+        }">
+
+            <input 
+               class=" my-4 border border-gray-300 rounded-md px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter city..."
+                @keyup.enter="setData"
+                x-model="cityInput"
+                id="cityInput"
+                type="text">
+            </input>
+ 
+
+        <div class="grid grid-cols-3 gap-4" id="grid">
+            <template x-for="city in cities"> 
+
+                <div :id="`${city.replaceAll(' ', '_').toLowerCase()}_v`" class="cities_c" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="`/api/${city}`" hx-include="[name='fahrenheit']"></div>
+
+            </template>
+            </div>
+
+
+       </div>
+
+         <script>
+
+             function refresh_grid(ev) {
+                 const id = `#${ev.replaceAll(' ', '_').toLowerCase()}_v`
+                 const grid = document.querySelector(id);
+                 htmx.process(grid);
+             }
+
+        </script>
+
     </body>
 </html>
