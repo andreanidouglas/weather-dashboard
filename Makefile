@@ -4,7 +4,7 @@ all: server view
 
 server: cmd/api/main.go
 	go mod tidy
-	templ generate
+	templ generate -v
 	go build -o out/$@ $<
 
 view: view/input.css $(go_files)

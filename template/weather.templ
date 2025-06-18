@@ -1,37 +1,38 @@
 package template
+
 import (
-    "strconv"
-    "github.com/andreanidouglas/weather-dashboard/model"
+	"github.com/andreanidouglas/weather-dashboard/model"
+	"strconv"
 )
 
 templ Weather(weather model.Weather, request model.WeatherRequest) {
-
-    <div x-ref="we" class="relative bg-gray-300 pt-4 pb-4 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-8">
-
-      <button class="bg-gray-300 text-sm border-solid align-left text-left" x-on:click="remove()">x</button>
-      <div class="items-center text-center text-lg text-pretty text-blue-900">
-        <p>{weather.City}<br/>{weather.Country}</p>
-      </div>
-      <div class="grid grid-cols-1 divide-y">
-        <div class="text-center text-4xl py-3 text-blue-950">
-            {strconv.FormatFloat(weather.CurrentTemp, 'f', 1, 32)}
-            if request.Fahrenheit {
-            ºF
-            } else {
-            ºC
-            }
-        </div>
-        <div class="text-center text-gray-600">
-            Feels like: {strconv.FormatFloat(weather.FeelsLike, 'f', 1, 32)}
-            if request.Fahrenheit {
-            ºF
-            } else {
-            ºC
-            }; {weather.Condition}<br/>
-        </div>
-        <div class="text-gray-600 text-center">
-            Humidity: {strconv.FormatFloat(weather.Humidity, 'f', 1, 32)}%
-        </div>
-      </div>
-    </div>
+	<div x-ref="we" class="relative bg-gray-300 pt-4 pb-4 shadow-xl ring-1 ring-gray-900/5 rounded-lg px-8">
+		<button class="bg-gray-300 text-sm border-solid align-left text-left" x-on:click="remove()">x</button>
+		<div class="items-center text-center text-lg text-pretty text-blue-900">
+			<p>{ weather.City }<br/>{ weather.Country }</p>
+		</div>
+		<div class="grid grid-cols-1 divide-y">
+			<div class="text-center text-4xl py-3 text-blue-950">
+				{ strconv.FormatFloat(weather.CurrentTemp, 'f', 1, 32) }
+				if request.Fahrenheit {
+					ºF
+				} else {
+					ºC
+				}
+			</div>
+			<div class="text-center text-gray-600">
+				Feels like: { strconv.FormatFloat(weather.FeelsLike, 'f', 1, 32) }
+				if request.Fahrenheit {
+					ºF
+				} else {
+					ºC
+				}
+				; { weather.Condition }
+				<br/>
+			</div>
+			<div class="text-gray-600 text-center">
+				Humidity: { strconv.FormatFloat(weather.Humidity, 'f', 1, 32) }%
+			</div>
+		</div>
+	</div>
 }

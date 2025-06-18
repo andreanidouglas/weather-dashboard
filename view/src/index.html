@@ -10,11 +10,10 @@
        <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     </head>
-    <body class="bg-gray-100 py-8 px-96">
+    <body class="bg-gray-100 py-8 sm:px-2 xl:px-12">
         <div x-data="{f: {},
            setState(ev) {
                 this.f = !this.f;
-                console.log('On change: ' + this.f);
                 localStorage.setItem('x_f', JSON.stringify(this.f));
 
             },
@@ -28,8 +27,6 @@
                     this.f = false;
                     localStorage.setItem('x_f', JSON.stringify(false));
                 }
-
-                console.log('Init: ' + this.f);
             }
         }">
         <label class="inline-flex items-center cursor-pointer">
@@ -39,12 +36,18 @@
         </label>
         </div>
 
-        <div x-data="{ 
-            cities: [], 
+        <div x-data="{
+            cities: [],
             cityInput: '',
 
-            setData() {
+            async setData() {
                 if (this.cityInput !== '') {
+
+                    let res = await fetch(`api/${this.cityInput}`);
+                    if (!res.ok) {
+                        console.log(`Invalid city ${this.cityInput}`)
+                        return;
+                    }
 
                     const gotCity = this.cityInput;
                     this.cities.push(cityInput.value);
@@ -89,19 +92,19 @@
 
         }">
 
-            <input 
+            <input
                class=" my-4 border border-gray-300 rounded-md px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter city..."
                 @keyup.enter="setData"
                 x-model="cityInput"
                 id="cityInput"
                 type="text">
             </input>
- 
 
-        <div class="grid grid-cols-3 gap-4" id="grid">
-            <template x-for="city in cities"> 
 
-                <div :id="`${city.replaceAll(' ', '_').toLowerCase()}_v`" class="cities_c" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="`api/${city}`" hx-include="[name='fahrenheit']"></div>
+        <div class="grid xl:grid-cols-3 sm:grid-cols-1 sm:py-2 sm:my-2 sm:gap-4 md:grid-cols-2 xl:gap-4" id="grid">
+            <template x-for="city in cities">
+
+                <div :id="`${city.replaceAll(' ', '_').toLowerCase()}_v`" class="cities_c sm:my-2" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="`api/${city}`" hx-include="[name='fahrenheit']"></div>
 
             </template>
             </div>
