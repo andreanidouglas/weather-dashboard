@@ -85,15 +85,8 @@
                     this.cities = al;
                 }
                 else {
-                    cities = ['Dubai', 'Montreal', 'Perth', 'Johannesburg'];
-                    localStorage.setItem('x_cities', JSON.stringify(cities));
-                    $nextTick(() => {
-                        let cvs = document.querySelectorAll('.cities_c');
-                        cvs.forEach((c) => {
-                           htmx.process(c)
-                        });
-
-                    });
+                    this.cities = ['Dubai', 'Montreal', 'Perth', 'Johannesburg'];
+                    localStorage.setItem('x_cities', JSON.stringify(this.cities));
                 }
             },
 
