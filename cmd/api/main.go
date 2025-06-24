@@ -4,69 +4,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/andreanidouglas/weather-dashboard/model"
-	"github.com/andreanidouglas/weather-dashboard/template"
+	"github.com/andreanidouglas/weather-dashboard/router"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 )
-
-type MyHandler struct {
-	standalone bool
-	apiContext model.ApiContext
-	cache *model.WeatherCache
-}
-
-// HandleWeather will response HTTP requests to GET /api/<city>?params=foo 
-// to any http request with a valid HTML data
-func (h *MyHandler) HandleWeather(w http.ResponseWriter, req *http.Request) {
-
-	city := req.PathValue("city")
-
-	// if url has param fahrenheit set, then serve the weather with imperial metric
-	fahrenheit := req.FormValue("fahrenheit")
-	fahrenheit_select := true
-	if len(fahrenheit) == 0 {
-		fahrenheit_select = false
-	}
-	log.Printf("Handle weather for: %s with fahreinheit: %v", req.PathValue("city"), fahrenheit)
-	
-	if city == "" {
-		w.WriteHeader(400)
-		w.Write([]byte("Need city parameter for API"))
-		return
-	}
-	cityRequest := model.WeatherRequest{
-		City: city,
-		Fahrenheit: fahrenheit_select,
-	}
-
-	ok, weather := h.cache.GetWeather(cityRequest.City, cityRequest.Fahrenheit)
-	if !ok {
-		log.Printf("Cache miss for %s", cityRequest.City)
-		weather_req, err := model.GetWeather(cityRequest, h.apiContext)
-		if err != nil {
-			w.WriteHeader(500)
-			w.Write([]byte("Could not get weather request"))
-			return
-		}
-
-		weather = weather_req
-		// TODO: if request city is changed by the API (eg Sao Paulo -> São Paulo)
-		//       the cache will always miss
-		go h.cache.SetWeather(*weather_req, cityRequest.Fahrenheit)
-	} else {
-		log.Printf("Cache hit for %s", cityRequest.City)
-	}
-	
-	// uses templ to render the template as HTML
-	component := template.Weather(*weather, cityRequest)
-	err := component.Render(req.Context(), w)
-	if err != nil {
-		w.WriteHeader(500)
-		log.Printf("Error rendering template %v", err)
-		return
-	}
-}
 
 func main() {
 
@@ -87,16 +33,16 @@ func main() {
 	}
 
 	log.Printf("Mode standalone: %v", standalone)
-	
-	mux := http.NewServeMux()
+
+	mux := chi.NewRouter()
+
+	mux.Use(middleware.Logger)
+	mux.Use(middleware.Recoverer)
+	mux.Use(middleware.RealIP)
 
 	cache := model.NewCache()
 
-	w := MyHandler{
-		standalone: standalone,
-		apiContext: apiContext,
-		cache: &cache,
-	}
+	w := router.NewHandler(standalone, &apiContext, &cache)
 
 	s := &http.Server{
 		Addr:           "0.0.0.0:8080",
@@ -107,11 +53,18 @@ func main() {
 	}
 
 	// serve GET requests. eg: GET /api/Sao%20Paulo?param=foo
-	mux.HandleFunc("GET /api/{city}", w.HandleWeather)
+	mux.Route("/api", func(r chi.Router) {
+		r.Use(httprate.Limit(
+			30,
+			10*time.Second,
+			httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
+		))
+		r.Get("/{city}", w.HandleWeather)
+	})
 
-	// if standalone env varilable is set, then serve static files from ./view
-	if w.standalone {
-		mux.Handle("GET /", http.FileServer(http.Dir("./view/src")))
+	// if standalone env varilable is set, then serve static files from ./src/view
+	if w.Standalone {
+		w.FileServer(mux, "/", http.Dir(filepath.Join(".", "view/src")))
 	}
 
 	s.ErrorLog = log.Default()
