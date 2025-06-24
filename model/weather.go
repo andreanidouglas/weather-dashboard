@@ -20,17 +20,16 @@ type Weather struct {
 }
 
 type WeatherRequest struct {
-	City string `json:"city"`
-	Fahrenheit bool `json:"fahreinheit"`
+	City       string `json:"city"`
+	Fahrenheit bool   `json:"fahreinheit"`
 }
 
 type ApiContext struct {
 	Key string
 }
 
-
 // GetWeather uses openweathermap api to fetch weather for a given city
-func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
+func GetWeather(req WeatherRequest, apiContext *ApiContext) (*Weather, error) {
 
 	log.Printf("Requested weather for: %s", req.City)
 	var weather = &OpenWeather{}
@@ -49,7 +48,7 @@ func GetWeather(req WeatherRequest, apiContext ApiContext) (*Weather, error) {
 
 	if res.StatusCode != 200 {
 		log.Printf("HTTP GET error %s, status code: %d", url, res.StatusCode)
-		return nil, fmt.Errorf("HTTP GET status code is: %s", res.StatusCode)
+		return nil, fmt.Errorf("HTTP GET status code is: %d", res.StatusCode)
 	}
 
 	decoder := json.NewDecoder(res.Body)
