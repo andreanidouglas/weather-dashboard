@@ -33,6 +33,22 @@ templ Weather(weather model.Weather, request model.WeatherRequest) {
 			<div class="text-gray-600 text-center">
 				Humidity: { strconv.FormatFloat(weather.Humidity, 'f', 1, 32) }%
 			</div>
+			<div class="text-gray-600 text-center" x-data={ templ.JSONString(weather) }>
+				<div x-data="{tz: {},
+				init() {
+					const dt = new Date();
+					const offset = this.Timezone + (dt.getTimezoneOffset() * 60)
+					const dt_off = new Date(dt.getTime() + (offset) * 1000);
+
+					this.tz = dt_off.toLocaleTimeString();
+
+				}
+
+
+				}">
+					<div x-text="tz"></div>
+				</div>
+			</div>
 		</div>
 	</div>
 }
