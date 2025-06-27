@@ -17,6 +17,8 @@ type Weather struct {
 	FeelsLike   float64
 	Condition   string
 	Humidity    float64
+	Timezone	int
+
 }
 
 type WeatherRequest struct {
@@ -63,6 +65,7 @@ func GetWeather(req WeatherRequest, apiContext *ApiContext) (*Weather, error) {
 		FeelsLike:   weather.Main.FeelsLike,
 		Condition:   weather.Weather[0].Main,
 		Humidity:    float64(weather.Main.Humidity),
+		Timezone:    weather.Timezone,
 	}
 
 	return &resWeather, nil
