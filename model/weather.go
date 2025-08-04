@@ -58,7 +58,7 @@ func GetWeather(req WeatherRequest, apiContext *ApiContext) (*Weather, error) {
 
 	resWeather := Weather{
 		City:        weather.Name,
-		Country:     "", // TODO: find the country from the API
+		Country:     weather.Sys.Country, // TODO: find the country from the API
 		CurrentTemp: weather.Main.Temp,
 		MaxTemp:     weather.Main.TempMax,
 		MinTemp:     weather.Main.TempMin,

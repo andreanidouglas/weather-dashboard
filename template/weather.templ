@@ -9,7 +9,7 @@ templ Weather(weather model.Weather, request model.WeatherRequest) {
 	<div x-ref="we" class="relative bg-gray-300 pt-4 pb-4 shadow-xl ring-1 ring-gray-900/5 rounded-lg px-8">
 		<button class="bg-gray-300 text-sm border-solid align-left text-left" x-on:click="remove()">x</button>
 		<div class="items-center text-center text-lg text-pretty text-blue-900">
-			<p>{ weather.City }<br/>{ weather.Country }</p>
+			<p>{ weather.City }, {weather.Country }</p>
 		</div>
 		<div class="grid grid-cols-1 divide-y">
 			<div class="text-center text-4xl py-3 text-blue-950">
