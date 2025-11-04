@@ -1,0 +1,9 @@
+package template
+
+import "github.com/andreanidouglas/weather-dashboard/model"
+
+templ CitySuggestions(locations []model.Location) {
+	for _, l := range locations {
+		<option value={ l.Name }>{ l.Name }, { l.Country }</option>
+	}
+}

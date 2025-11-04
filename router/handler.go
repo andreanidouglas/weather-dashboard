@@ -94,3 +94,28 @@ func (h *Handler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 }
+
+// HandleSuggest serves /api/suggest?q=<partial> returning <option> list for datalist
+func (h *Handler) HandleSuggest(w http.ResponseWriter, req *http.Request) {
+	q := req.URL.Query().Get("q")
+	if len(strings.TrimSpace(q)) < 2 { // require at least 2 chars
+		w.WriteHeader(200)
+		// empty response is fine for short queries
+		return
+	}
+
+	locations, err := model.GetLocations(q, 8, h.apiContext)
+	if err != nil {
+		log.Printf("suggest error: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Could not fetch suggestions"))
+		return
+	}
+
+	component := template.CitySuggestions(locations)
+	if err := component.Render(req.Context(), w); err != nil {
+		log.Printf("render suggest error: %v", err)
+		w.WriteHeader(500)
+		return
+	}
+}

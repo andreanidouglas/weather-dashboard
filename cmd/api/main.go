@@ -60,6 +60,7 @@ func main() {
 			httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
 		))
 		r.Get("/{city}", w.HandleWeather)
+		r.Get("/suggest", w.HandleSuggest)
 	})
 
 	// if standalone env varilable is set, then serve static files from ./src/view
