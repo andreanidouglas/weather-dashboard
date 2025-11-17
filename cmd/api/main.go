@@ -62,6 +62,10 @@ func main() {
 		r.Get("/{city}", w.HandleWeather)
 	})
 
+	mux.Get("/health", func(w http.ResponseWriter, r *http.Request){
+		w.WriteHeader(200)
+	})
+
 	// if standalone env varilable is set, then serve static files from ./src/view
 	if w.Standalone {
 		w.FileServer(mux, "/", http.Dir(filepath.Join(".", "view/src")))
