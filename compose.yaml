@@ -1,28 +1,7 @@
 services:
-
-  proxy:
-    image: traefik:3.2
-    command: --api.insecure=true --providers.docker
-    restart: unless-stopped
-    ports:
-      - 8001:80
-      - 8081:8080
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-  api:
-    image: andreanidouglas/weather-dashboard-api:latest
-    environment:
-      - STANDALONE=false
-      - API_KEY=<enter your api key>
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.be.rule=Host(`weather.local`)"
-      - "traefik.http.routers.be.rule=PathPrefix(`/api`)"
-      - "traefik.http.services.be.loadbalancer.server.port=8080"
-
   frontend:
     image: andreanidouglas/weather-dashboard-frontend:latest
+    restart: unless-stopped
     volumes:
       - ./view/src:/var/www/html:ro
     labels:
@@ -30,3 +9,41 @@ services:
       - "traefik.http.routers.fe.rule=Host(`weather.local`)"
       - "traefik.http.services.fe.loadbalancer.server.port=80"
       - "traefik.http.routers.fe.rule=!PathPrefix(`/api`)"
+      - "traefik.http.services.fe.loadBalancer.healthcheck.path=/"
+      - "traefik.http.routers.fe.observability.accesslogs=true"
+  api:
+    image: andreanidouglas/weather-dashboard-api:latest
+    scale: 1
+    restart: unless-stopped
+    ports:
+      - 9123:8080
+    environment:
+      - STANDALONE=false
+      - API_KEY=729b5956db2f0421b3a8e08c4065a1ca
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.be.rule=Host(`weather.local`)"
+      - "traefik.http.routers.be.rule=PathPrefix(`/api`)"
+      - "traefik.http.services.be.loadbalancer.server.port=8080"
+      - "traefik.http.services.be.loadBalancer.healthcheck.path=/health"
+      - "traefik.http.routers.be.observability.accesslogs=false"
+  web:
+    image: traefik:3.6
+    command: 
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--log.level=INFO"
+      - "--log.filePath=/data/traefik.log"
+      - "--accesslog=true"
+      - "--accesslog.filepath=/data/access.log"
+      - "--accesslog.format=JSON"
+      - "--accesslog.bufferingsize=100"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=false"
+    ports:
+      - 8001:80
+      - 8081:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik_data:/data
