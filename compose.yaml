@@ -19,7 +19,7 @@ services:
       - 9123:8080
     environment:
       - STANDALONE=false
-      - API_KEY=729b5956db2f0421b3a8e08c4065a1ca
+      - API_KEY=<ENTER API KEY>
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.be.rule=Host(`weather.local`)"
