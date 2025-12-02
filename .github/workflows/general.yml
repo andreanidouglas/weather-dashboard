@@ -22,6 +22,10 @@ jobs:
           templ generate
           go build -v ./cmd/api/main.go
 
+      - name: Run tests
+        run: |
+          go test -v ./...
+
       - name: setup node
         uses: actions/setup-node@v4
         with: 
