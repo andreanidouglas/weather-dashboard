@@ -3,6 +3,7 @@ package router
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/andreanidouglas/weather-dashboard/model"
@@ -116,6 +117,63 @@ func (h *Handler) HandleSuggest(w http.ResponseWriter, req *http.Request) {
 	if err := component.Render(req.Context(), w); err != nil {
 		log.Printf("render suggest error: %v", err)
 		w.WriteHeader(500)
+		return
+	}
+}
+
+func (h *Handler) HandleWeatherByCoords(w http.ResponseWriter, req *http.Request) {
+	lat := req.URL.Query().Get("lat")
+	lon := req.URL.Query().Get("lon")
+	if len(strings.TrimSpace(lat)) == 0 || len(strings.TrimSpace(lon)) == 0 {
+		w.WriteHeader(400)
+		w.Write([]byte("Need lat and lon parameters for API"))
+		return
+	}
+	fahrenheit := req.FormValue("fahrenheit")
+	fahrenheit_select := true
+	if len(fahrenheit) == 0 {
+		fahrenheit_select = false
+	}
+
+	lat_float, err := strconv.ParseFloat(lat, 64)
+	if err != nil {
+		w.WriteHeader(400)
+		w.Write([]byte("Invalid lat parameter"))
+		return
+	}
+	lon_float, err := strconv.ParseFloat(lon, 64)
+	if err != nil {
+		w.WriteHeader(400)
+		w.Write([]byte("Invalid lon parameter"))
+		return
+	}
+
+	log.Printf("Handle weather for coords: %s, %s", lat, lon)
+	cityRequest := model.RequestWeatherByCoords{
+		Latitude:   lat_float,
+		Longitude:  lon_float,
+		Fahrenheit: fahrenheit_select,
+	}
+	weather_req, err := model.GetWeatherByCoords(cityRequest, h.apiContext)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Could not get weather request"))
+		return
+	}
+	weather := weather_req
+	new_req := model.WeatherRequest{
+		City:       weather.City,
+		Fahrenheit: fahrenheit_select,
+	}
+	//add weather to cache
+	go h.cache.SetWeather(*weather_req, cityRequest.Fahrenheit)
+
+	// uses templ to render the template as HTML
+	component := template.Weather(*weather, new_req)
+	err = component.Render(req.Context(), w)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Printf("Error rendering template %v", err)
 		return
 	}
 }

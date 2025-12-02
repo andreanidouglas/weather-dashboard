@@ -61,6 +61,7 @@ func main() {
 		))
 		r.Get("/{city}", w.HandleWeather)
 		r.Get("/suggest", w.HandleSuggest)
+		r.Get("/weather", w.HandleWeatherByCoords)
 	})
 
 	// if standalone env varilable is set, then serve static files from ./src/view
