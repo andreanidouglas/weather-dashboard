@@ -4,11 +4,10 @@ all: server view
 
 server: cmd/api/main.go
 	go mod tidy
-	templ generate -v
 	go build -o out/$@ $<
 
-view: view/input.css $(go_files)
-	cd view && npx tailwindcss --input ./input.css --output ./src/css/style.css --minify
+view: view/src/index.tsx $(go_files)
+	cd view && npm run build
 
 clean:
 	rm out/*

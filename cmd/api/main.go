@@ -4,14 +4,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/andreanidouglas/weather-dashboard/model"
-	"github.com/andreanidouglas/weather-dashboard/router"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/httprate"
+	v1 "github.com/andreanidouglas/weather-dashboard/router/api/v1"
 )
 
 func main() {
@@ -23,9 +19,9 @@ func main() {
 		log.Fatalf("Need API_KEY as environment variable")
 	}
 
-	apiContext := model.ApiContext{
-		Key: key,
-	}
+	// apiContext := model.ApiContext{
+	// 	Key: key,
+	// }
 
 	standalone := false
 	if standalone_arg == "true" {
@@ -34,15 +30,7 @@ func main() {
 
 	log.Printf("Mode standalone: %v", standalone)
 
-	mux := chi.NewRouter()
-
-	mux.Use(middleware.Logger)
-	mux.Use(middleware.Recoverer)
-	mux.Use(middleware.RealIP)
-
-	cache := model.NewCache()
-
-	w := router.NewHandler(standalone, &apiContext, &cache)
+	mux := http.NewServeMux()
 
 	s := &http.Server{
 		Addr:           "0.0.0.0:8080",
@@ -52,25 +40,15 @@ func main() {
 		MaxHeaderBytes: 10 << 10,
 	}
 
-	// serve GET requests. eg: GET /api/Sao%20Paulo?param=foo
-	mux.Route("/api", func(r chi.Router) {
-		r.Use(httprate.Limit(
-			30,
-			10*time.Second,
-			httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
-		))
-		r.Get("/{city}", w.HandleWeather)
-		r.Get("/suggest", w.HandleSuggest)
-	})
-
-	mux.Get("/health", func(w http.ResponseWriter, r *http.Request){
-		w.WriteHeader(200)
-	})
-
-	// if standalone env varilable is set, then serve static files from ./src/view
-	if w.Standalone {
-		w.FileServer(mux, "/", http.Dir(filepath.Join(".", "view/src")))
+	ctx := model.ApiContext{
+		Key: key,
 	}
+
+	weatherHandler := v1.NewWeatherHandler(ctx)
+	healthHandler := v1.NewHealthHandler()
+
+	mux.Handle("/api/v1/weather/", http.StripPrefix("/api/v1/weather", weatherHandler.API))
+	mux.Handle("/api/v1/health/", http.StripPrefix("/api/v1/health", healthHandler.API))
 
 	s.ErrorLog = log.Default()
 	l := s.ErrorLog
