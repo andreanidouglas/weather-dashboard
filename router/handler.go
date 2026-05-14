@@ -1,6 +1,7 @@
 package router
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -118,4 +119,28 @@ func (h *Handler) HandleSuggest(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(500)
 		return
 	}
+}
+
+
+func (h* Handler) HandleCache(w http.ResponseWriter, req *http.Request) {
+
+	cache, err := model.GetCache(h.cache)
+	if err != nil {
+		log.Printf("could not get cache: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("{\"error\": \"cannot get cache\"}"))
+		return
+	}
+
+	cacheJson, err := json.Marshal(cache)
+	if err != nil {
+		log.Printf("could not get cache: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("{\"error\": \"cannot marshall cache\"}"))
+		return
+	}
+
+	w.WriteHeader(200)
+	w.Header().Add("content-type", "application/json")
+	w.Write(cacheJson)
 }

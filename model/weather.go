@@ -9,15 +9,15 @@ import (
 )
 
 type Weather struct {
-	City        string
-	Country     string
-	CurrentTemp float64
-	MaxTemp     float64
-	MinTemp     float64
-	FeelsLike   float64
-	Condition   string
-	Humidity    float64
-	Timezone	int
+	City        string	`json:"city"`
+	Country     string	`json:"country"`
+	CurrentTemp float64	`json:"current_temp"`
+	MaxTemp     float64	`json:"max_temp"`
+	MinTemp     float64	`json:"min_temp"`
+	FeelsLike   float64	`json:"feels_like"`
+	Condition   string	`json:"condition"`
+	Humidity    float64	`json:"humidity"`
+	Timezone	int	`json:"timezone"`
 
 }
 

@@ -61,6 +61,7 @@ func main() {
 		))
 		r.Get("/{city}", w.HandleWeather)
 		r.Get("/suggest", w.HandleSuggest)
+		r.Get("/cache", w.HandleCache)
 	})
 
 	mux.Get("/health", func(w http.ResponseWriter, r *http.Request){

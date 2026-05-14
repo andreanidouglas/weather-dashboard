@@ -1,4 +1,4 @@
-FROM golang:1.24.4-bookworm AS build
+FROM golang:1.25-bookworm AS build
 RUN go install github.com/a-h/templ/cmd/templ@latest
 WORKDIR /app
 ENV CGO_ENABLED=0
@@ -13,6 +13,9 @@ LABEL org.opencontainers.image.licenses=MIT
 WORKDIR /app
 ENV TZ="America/Sao Paulo"
 RUN apt update && apt install ca-certificates curl -y --no-install-recommends
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+RUN 
 COPY --from=build /app/server /app/server
 EXPOSE 8080
 ENV STANDALONE=false

@@ -1,51 +1,49 @@
 package model
 
 import (
-	"time"
 	"sync"
+	"time"
 )
-
 
 // Naive cache for Weather Requests
 type WeatherCache struct {
 	sync.RWMutex
-	weather map[string]weatherCacheValue
+	Weather map[string]weatherCacheValue `json:"weather"`
 }
 
 type weatherCacheValue struct {
-	weather_c Weather
-	weather_f Weather
-	valid_until time.Time
+	Weather_c Weather `json:"weather_c"`
+	Weather_f Weather `json:"weather_f"`
+	Valid_until time.Time `json:"valid_until"`
 }
 
 func NewCache() WeatherCache {
 	m := make(map[string]weatherCacheValue)
 
 	return WeatherCache{
-		weather: m,
+		Weather: m,
 	}
-
 }
 
 // Check the cache if already contain the city requested
 func (w* WeatherCache) GetWeather(city string, fahreinheit bool) (bool, *Weather) {
 	w.RLock()
 	defer w.RUnlock()
-	weatherCache := w.weather[city]
-	if weatherCache.weather_c.City == ""  {
+	weatherCache := w.Weather[city]
+	if weatherCache.Weather_c.City == ""  {
 		return false, nil 
 	}
 
-	if time.Now().Compare(weatherCache.valid_until) > 0 {
+	if time.Now().Compare(weatherCache.Valid_until) > 0 {
 		return false, nil
 	}
 
 	if fahreinheit {
-		return true, &weatherCache.weather_f 
+		return true, &weatherCache.Weather_f 
 
 	}
 
-	return true, &weatherCache.weather_c
+	return true, &weatherCache.Weather_c
 
 }
 
@@ -77,13 +75,31 @@ func (w* WeatherCache) SetWeather(weather Weather, fahreinheit bool) {
 	}
 
 	cache := weatherCacheValue{
-		weather_c: weather_c,
-		weather_f: weather_f,
-		valid_until: time.Now().Add(time.Duration(time.Minute * 30)),
+		Weather_c: weather_c,
+		Weather_f: weather_f,
+		Valid_until: time.Now().Add(time.Duration(time.Minute * 30)),
 	}
 
 
 	w.Lock()
 	defer w.Unlock()
-	w.weather[weather.City] = cache
+	w.Weather[weather.City] = cache
+}
+
+
+
+type Cache struct {
+	Entries []weatherCacheValue `json:"entries"`
+}
+
+func GetCache(cache *WeatherCache) (Cache, error) {
+	retCache := Cache{}
+
+	retCache.Entries = make([]weatherCacheValue, 0)
+
+	for _, value := range cache.Weather {
+		retCache.Entries = append(retCache.Entries, value)
+	}
+
+	return retCache, nil
 }

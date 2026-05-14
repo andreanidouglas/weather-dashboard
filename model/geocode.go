@@ -20,6 +20,8 @@ type Location struct {
 	State   string  `json:"state"`
 }
 
+
+
 // GetLocations queries the OpenWeatherMap geocoding API for city name suggestions.
 // It returns up to limit matching locations. Query shorter than 2 chars returns empty slice.
 func GetLocations(query string, limit int, apiContext *ApiContext) ([]Location, error) {
@@ -66,3 +68,5 @@ func GetLocations(query string, limit int, apiContext *ApiContext) ([]Location, 
 
 	return unique, nil
 }
+
+
