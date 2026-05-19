@@ -37,7 +37,7 @@ templ Weather(weather model.Weather, request model.WeatherRequest) {
 				<div x-data="{tz: {},
 				init() {
 					const dt = new Date();
-					const offset = this.Timezone + (dt.getTimezoneOffset() * 60)
+					const offset = this.timezone + (dt.getTimezoneOffset() * 60)
 					const dt_off = new Date(dt.getTime() + (offset) * 1000);
 
 					this.tz = dt_off.toLocaleTimeString();
