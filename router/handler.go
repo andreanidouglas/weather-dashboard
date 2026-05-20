@@ -2,8 +2,10 @@ package router
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/andreanidouglas/weather-dashboard/model"
@@ -121,8 +123,7 @@ func (h *Handler) HandleSuggest(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-
-func (h* Handler) HandleCache(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) HandleCache(w http.ResponseWriter, req *http.Request) {
 
 	cache, err := model.GetCache(h.cache)
 	if err != nil {
@@ -143,4 +144,59 @@ func (h* Handler) HandleCache(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(200)
 	w.Header().Add("content-type", "application/json")
 	w.Write(cacheJson)
+}
+
+func (h *Handler) HandleLatLon(w http.ResponseWriter, req *http.Request) {
+
+	lat := req.URL.Query().Get("lat")
+	lon := req.URL.Query().Get("lon")
+
+	if lat == "" || lon == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"missing lat or lon parameters\"}"))
+		return
+	}
+
+	lat_value, err := strconv.ParseFloat(lat, 64)
+	lon_value, err := strconv.ParseFloat(lon, 64)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("{\"error\": \"lat or lon parameters with invalid value. cannot parse float\"}"))
+		return
+
+	}
+
+	lat_lon := model.LatLon{
+		Lat: lat_value,
+		Lon: lon_value,
+	}
+
+	fahrenheit := req.FormValue("fahrenheit")
+	fahrenheit_select := true
+	if len(fahrenheit) == 0 {
+		fahrenheit_select = false
+	}
+
+	weather_req, err := model.GetWeatherByLatLon(lat_lon, *h.apiContext)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		err_message := fmt.Sprintf("{\"error\": \"cannot get value for lat: %f / lon: %s\": %v}", lat_value, lon_value, err)
+		w.Write([]byte(err_message))
+		return
+	}
+
+	cityRequest := model.WeatherRequest{
+		City:       weather_req.City,
+		Fahrenheit: fahrenheit_select,
+	}
+
+	component := template.Weather(*weather_req, cityRequest)
+	err = component.Render(req.Context(), w)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Printf("Error rendering template %v", err)
+		return
+	}
+
 }

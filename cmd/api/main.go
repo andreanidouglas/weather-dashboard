@@ -62,9 +62,10 @@ func main() {
 		r.Get("/{city}", w.HandleWeather)
 		r.Get("/suggest", w.HandleSuggest)
 		r.Get("/cache", w.HandleCache)
+		r.Get("/pos", w.HandleLatLon)
 	})
 
-	mux.Get("/health", func(w http.ResponseWriter, r *http.Request){
+	mux.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	})
 
