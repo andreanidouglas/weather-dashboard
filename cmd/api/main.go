@@ -59,6 +59,7 @@ func main() {
 			10*time.Second,
 			httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
 		))
+		r.Get("/text/{city}", w.HandleTextWeather)
 		r.Get("/{city}", w.HandleWeather)
 		r.Get("/suggest", w.HandleSuggest)
 		r.Get("/cache", w.HandleCache)

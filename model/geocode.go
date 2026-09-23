@@ -20,6 +20,7 @@ type Location struct {
 	State   string  `json:"state"`
 }
 
+var GeocodeURL = "https://api.openweathermap.org/geo/1.0/direct"
 
 
 // GetLocations queries the OpenWeatherMap geocoding API for city name suggestions.
@@ -33,7 +34,7 @@ func GetLocations(query string, limit int, apiContext *ApiContext) ([]Location, 
 		limit = 5
 	}
 
-	endpoint := fmt.Sprintf("https://api.openweathermap.org/geo/1.0/direct?q=%s&limit=%d&appid=%s", url.QueryEscape(trimmed), limit, apiContext.Key)
+	endpoint := fmt.Sprintf("%s?q=%s&limit=%d&appid=%s", GeocodeURL, url.QueryEscape(trimmed), limit, apiContext.Key)
 	log.Printf("Geocode suggestions for: %s", trimmed)
 
 	res, err := http.Get(endpoint)

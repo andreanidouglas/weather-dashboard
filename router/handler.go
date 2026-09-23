@@ -48,6 +48,57 @@ func (h *Handler) FileServer(r chi.Router, path string, root http.FileSystem) {
 
 // HandleWeather will response HTTP requests to GET /api/<city>?params=foo
 // to any http request with a valid HTML data
+func (h *Handler) HandleTextWeather(w http.ResponseWriter, req *http.Request) {
+
+	city := req.PathValue("city")
+
+	fahrenheit := req.FormValue("fahrenheit")
+	fahrenheit_select := true
+	if len(fahrenheit) == 0 {
+		fahrenheit_select = false
+	}
+
+	if city == "" {
+		w.WriteHeader(400)
+		w.Write([]byte("Need city parameter for API"))
+		return
+	}
+
+	cityRequest := model.WeatherRequest{
+		City:       city,
+		Fahrenheit: fahrenheit_select,
+	}
+
+	ok, weather := h.cache.GetWeather(cityRequest.City, cityRequest.Fahrenheit)
+	if !ok {
+		log.Printf("Text cache miss for %s", cityRequest.City)
+		weather_req, err := model.GetWeather(cityRequest, h.apiContext)
+		if err != nil {
+			w.WriteHeader(500)
+			w.Write([]byte("Could not get weather request"))
+			return
+		}
+
+		weather = weather_req
+		go h.cache.SetWeather(*weather_req, cityRequest.Fahrenheit)
+	} else {
+		log.Printf("Text cache hit for %s", cityRequest.City)
+	}
+
+	unit := "°C"
+	if cityRequest.Fahrenheit {
+		unit = "°F"
+	}
+
+	w.Header().Set("content-type", "text/plain; charset=utf-8")
+	fmt.Fprintf(w, "Weather for %s, %s\n", weather.City, weather.Country)
+	fmt.Fprintf(w, "Current: %.1f%s\n", weather.CurrentTemp, unit)
+	fmt.Fprintf(w, "Feels like: %.1f%s\n", weather.FeelsLike, unit)
+	fmt.Fprintf(w, "Condition: %s\n", weather.Condition)
+	fmt.Fprintf(w, "High: %.1f%s / Low: %.1f%s\n", weather.MaxTemp, unit, weather.MinTemp, unit)
+	fmt.Fprintf(w, "Humidity: %.1f%%\n", weather.Humidity)
+}
+
 func (h *Handler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 
 	city := req.PathValue("city")
@@ -58,7 +109,7 @@ func (h *Handler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 	if len(fahrenheit) == 0 {
 		fahrenheit_select = false
 	}
-	log.Printf("Handle weather for: %s with fahreinheit: %v", req.PathValue("city"), fahrenheit)
+	log.Printf("Handle weather for: %s with fahrenheit: %v", req.PathValue("city"), fahrenheit)
 
 	if city == "" {
 		w.WriteHeader(400)
@@ -181,7 +232,7 @@ func (h *Handler) HandleLatLon(w http.ResponseWriter, req *http.Request) {
 	weather_req, err := model.GetWeatherByLatLon(lat_lon, *h.apiContext)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		err_message := fmt.Sprintf("{\"error\": \"cannot get value for lat: %f / lon: %s\": %v}", lat_value, lon_value, err)
+		err_message := fmt.Sprintf("{\"error\": \"cannot get value for lat: %f / lon: %f: %v\"}", lat_value, lon_value, err)
 		w.Write([]byte(err_message))
 		return
 	}

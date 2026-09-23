@@ -26,7 +26,7 @@ func NewCache() WeatherCache {
 }
 
 // Check the cache if already contain the city requested
-func (w* WeatherCache) GetWeather(city string, fahreinheit bool) (bool, *Weather) {
+func (w* WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather) {
 	w.RLock()
 	defer w.RUnlock()
 	weatherCache := w.Weather[city]
@@ -38,7 +38,7 @@ func (w* WeatherCache) GetWeather(city string, fahreinheit bool) (bool, *Weather
 		return false, nil
 	}
 
-	if fahreinheit {
+	if fahrenheit {
 		return true, &weatherCache.Weather_f 
 
 	}
@@ -48,11 +48,11 @@ func (w* WeatherCache) GetWeather(city string, fahreinheit bool) (bool, *Weather
 }
 
 // Create a new entry on the cache
-func (w* WeatherCache) SetWeather(weather Weather, fahreinheit bool) {
+func (w* WeatherCache) SetWeather(weather Weather, fahrenheit bool) {
 	weather_c := weather
 	weather_f := weather
 
-	if fahreinheit {
+	if fahrenheit {
 		current_temp_c := 5.0/9.0 * (weather.CurrentTemp - 32.0)
 		feels_like_c := 5.0/9.0 * (weather.FeelsLike - 32.0)
 		max_temp_c := 5.0/9.0 * (weather.MaxTemp - 32.0)

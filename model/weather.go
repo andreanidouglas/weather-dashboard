@@ -8,6 +8,8 @@ import (
 	"net/url"
 )
 
+var WeatherDataURL = "https://api.openweathermap.org/data/2.5/weather"
+
 type Weather struct {
 	City        string  `json:"city"`
 	Country     string  `json:"country"`
@@ -22,7 +24,7 @@ type Weather struct {
 
 type WeatherRequest struct {
 	City       string `json:"city"`
-	Fahrenheit bool   `json:"fahreinheit"`
+	Fahrenheit bool   `json:"fahrenheit"`
 }
 
 type ApiContext struct {
@@ -45,19 +47,20 @@ func GetWeather(req WeatherRequest, apiContext *ApiContext) (*Weather, error) {
 		units = "imperial"
 	}
 
-	url := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&units=%s&appid=%s", url.QueryEscape(req.City), units, apiContext.Key)
+	endpoint := fmt.Sprintf("%s?q=%s&units=%s&appid=%s", WeatherDataURL, url.QueryEscape(req.City), units, apiContext.Key)
 
-	res, err := http.Get(url)
+	res, err := http.Get(endpoint)
 	if err != nil {
-		log.Printf("HTTP GET error: %s\n%v", url, err)
+		log.Printf("HTTP GET error: %s\n%v", endpoint, err)
 		return nil, err
 	}
 
 	if res.StatusCode != 200 {
-		log.Printf("HTTP GET error %s, status code: %d", url, res.StatusCode)
+		log.Printf("HTTP GET error %s, status code: %d", endpoint, res.StatusCode)
 		return nil, fmt.Errorf("HTTP GET status code is: %d", res.StatusCode)
 	}
 
+	defer res.Body.Close()
 	decoder := json.NewDecoder(res.Body)
 	decoder.Decode(weather)
 
@@ -85,19 +88,20 @@ func GetWeatherByLatLon(req LatLon, apiContext ApiContext) (*Weather, error) {
 		units = "imperial"
 	}
 
-	url := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?lat=%f&lon=%f&units=%s&appid=%s", req.Lat, req.Lon, units, apiContext.Key)
+	endpoint := fmt.Sprintf("%s?lat=%f&lon=%f&units=%s&appid=%s", WeatherDataURL, req.Lat, req.Lon, units, apiContext.Key)
 
-	res, err := http.Get(url)
+	res, err := http.Get(endpoint)
 	if err != nil {
-		log.Printf("HTTP GET error: %s\n%v", url, err)
+		log.Printf("HTTP GET error: %s\n%v", endpoint, err)
 		return nil, err
 	}
 
 	if res.StatusCode != 200 {
-		log.Printf("HTTP GET error %s, status code: %d", url, res.StatusCode)
+		log.Printf("HTTP GET error %s, status code: %d", endpoint, res.StatusCode)
 		return nil, fmt.Errorf("HTTP GET status code is: %d", res.StatusCode)
 	}
 
+	defer res.Body.Close()
 	decoder := json.NewDecoder(res.Body)
 	decoder.Decode(weather)
 
