@@ -1,12 +1,12 @@
 module github.com/andreanidouglas/weather-dashboard
 
-go 1.25.0
+go 1.26.0
 
-require github.com/a-h/templ v0.3.1020
+require github.com/a-h/templ v0.3.1070
 
 require (
-	github.com/go-chi/httprate v0.15.0
-	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
-	github.com/zeebo/xxh3 v1.0.2 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	github.com/go-chi/httprate v0.16.1
+	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
+	github.com/zeebo/xxh3 v1.1.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 )
