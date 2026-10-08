@@ -34,7 +34,7 @@ func Weather(weather model.Weather, request model.WeatherRequest) templ.Componen
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-ref=\"we\" class=\"relative bg-gray-300 pt-4 pb-4 shadow-xl ring-1 ring-gray-900/5 rounded-lg px-8\"><button class=\"bg-gray-300 text-sm border-solid align-left text-left\" x-on:click=\"remove()\">x</button><div class=\"items-center text-center text-lg text-pretty text-blue-900\"><p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-ref=\"we\" class=\"relative bg-gray-300 py-4 px-4 sm:px-8 shadow-xl ring-1 ring-gray-900/5 rounded-lg\"><button type=\"button\" aria-label=\"Remove city\" class=\"absolute top-1 right-1 flex items-center justify-center w-11 h-11 rounded-full text-xl leading-none text-gray-600 hover:bg-gray-400/50 hover:text-gray-900\" x-on:click=\"remove()\">&times;</button><div class=\"items-center text-center text-lg text-pretty text-blue-900 px-10\"><p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -78,12 +78,12 @@ func Weather(weather model.Weather, request model.WeatherRequest) templ.Componen
 			return templ_7745c5c3_Err
 		}
 		if request.Fahrenheit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "ºF")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "°F")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "ºC")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "°C")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -106,12 +106,12 @@ func Weather(weather model.Weather, request model.WeatherRequest) templ.Componen
 			return templ_7745c5c3_Err
 		}
 		if request.Fahrenheit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "ºF ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "°F ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "ºC ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "°C ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

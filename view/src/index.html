@@ -3,14 +3,14 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title></title>
+        <title>Weather Dashboard</title>
         <link href="./css/style.css" rel="stylesheet" />
         <link rel="icon" type="image/x-icon" href="./favicon.ico">
         <script src="./js/htmx.min.js"></script>
        <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     </head>
-    <body class="bg-gray-100 py-8 sm:px-2 xl:px-12">
+    <body class="bg-gray-100 px-4 py-6 sm:px-6 sm:py-8 xl:px-12">
         <div x-data="{f: {},
            setState(ev) {
                 this.f = !this.f;
@@ -29,7 +29,7 @@
                 }
             }
         }">
-        <label class="inline-flex items-center cursor-pointer">
+        <label class="inline-flex items-center py-2 cursor-pointer">
             <input x-model='f' type="checkbox" value="yes" class="sr-only peer" name="fahrenheit" id="fahrenheit" @click="setState($event.target)">
             <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:inset-s-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Fahrenheit</span>
@@ -120,8 +120,9 @@
 
         }">
 
+            <div class="flex gap-2 my-4">
             <input
-               class=" my-4 border border-gray-300 rounded-md px-4 py-2 w-auto focus:outline-hidden focus:ring-2 focus:ring-blue-500" placeholder="Enter city..."
+               class="flex-1 min-w-0 sm:flex-none sm:w-80 bg-white border border-gray-300 rounded-md px-4 py-2 text-base focus:outline-hidden focus:ring-2 focus:ring-blue-500" placeholder="Enter city..."
                 @keyup.enter="setData"
                 @input="remember"
                 x-model="cityInput"
@@ -133,18 +134,19 @@
                 hx-target="#city-suggestions"
                 hx-swap="innerHTML"
                 autocomplete="off"
+                enterkeyhint="go"
                 type="text">
-            </input>
             <datalist id="city-suggestions">
                 <!-- Dynamic options injected here -->
             </datalist>
-            <button @click="setData" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-sm">Add</button>
+            <button @click="setData" class="shrink-0 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-md">Add</button>
+            </div>
 
 
-        <div class="grid xl:grid-cols-3 sm:grid-cols-1 sm:py-2 sm:my-2 sm:gap-4 md:grid-cols-2 xl:gap-4" id="grid">
-            <template x-for="city in cities">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" id="grid">
+            <template x-for="city in cities" :key="cityId(city)">
 
-                <div :id="cityId(city)" class="cities_c sm:my-2" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="cityUrl(city)" hx-include="[name='fahrenheit']"></div>
+                <div :id="cityId(city)" class="cities_c" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="cityUrl(city)" hx-include="[name='fahrenheit']"></div>
 
             </template>
             </div>
