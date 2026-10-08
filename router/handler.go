@@ -10,7 +10,6 @@ import (
 
 	"github.com/andreanidouglas/weather-dashboard/model"
 	"github.com/andreanidouglas/weather-dashboard/template"
-	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
@@ -27,23 +26,18 @@ func NewHandler(standalone bool, apiCtx *model.ApiContext, cache *model.WeatherC
 	}
 }
 
-func (h *Handler) FileServer(r chi.Router, path string, root http.FileSystem) {
-	if strings.ContainsAny(path, "{}*") {
+// FileServer serves static files from root under the given path prefix.
+// ServeMux redirects requests for path without the trailing slash.
+func (h *Handler) FileServer(mux *http.ServeMux, path string, root http.FileSystem) {
+	if strings.ContainsAny(path, "{}") {
 		panic("FileServer does not permit any URL parameters.")
 	}
 
-	if path != "/" && path[len(path)-1] != '/' {
-		r.Get(path, http.RedirectHandler(path+"/", http.StatusMovedPermanently).ServeHTTP)
+	if !strings.HasSuffix(path, "/") {
 		path += "/"
 	}
-	path += "*"
 
-	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
-		rctx := chi.RouteContext(r.Context())
-		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
-		fs.ServeHTTP(w, r)
-	})
+	mux.Handle("GET "+path, http.StripPrefix(strings.TrimSuffix(path, "/"), http.FileServer(root)))
 }
 
 // HandleWeather will response HTTP requests to GET /api/<city>?params=foo

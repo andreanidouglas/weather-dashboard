@@ -12,7 +12,6 @@ import (
 
 	"github.com/andreanidouglas/weather-dashboard/model"
 	"github.com/andreanidouglas/weather-dashboard/router"
-	"github.com/go-chi/chi/v5"
 )
 
 const testAPIKey = "test-api-key"
@@ -60,18 +59,16 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 	return h, owm, cleanup
 }
 
-func newTestRouter(h *router.Handler) chi.Router {
-	r := chi.NewRouter()
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+func newTestRouter(h *router.Handler) http.Handler {
+	r := http.NewServeMux()
+	r.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	r.Route("/api", func(r chi.Router) {
-		r.Get("/text/{city}", h.HandleTextWeather)
-		r.Get("/pos", h.HandleLatLon)
-		r.Get("/suggest", h.HandleSuggest)
-		r.Get("/cache", h.HandleCache)
-		r.Get("/{city}", h.HandleWeather)
-	})
+	r.HandleFunc("GET /api/text/{city}", h.HandleTextWeather)
+	r.HandleFunc("GET /api/pos", h.HandleLatLon)
+	r.HandleFunc("GET /api/suggest", h.HandleSuggest)
+	r.HandleFunc("GET /api/cache", h.HandleCache)
+	r.HandleFunc("GET /api/{city}", h.HandleWeather)
 	return r
 }
 
