@@ -4,6 +4,8 @@
 
 @source '../template/**/*.templ';
 @source '../template/**/*.go';
+/* Don't scan our own output, or stale classes survive rebuilds. */
+@source not './src/css/style.css';
 
 /*
   Keep the Tailwind CSS v3 font stack. The v4 default lists "Noto Sans",

@@ -13,8 +13,8 @@ type WeatherCache struct {
 }
 
 type weatherCacheValue struct {
-	Weather_c Weather `json:"weather_c"`
-	Weather_f Weather `json:"weather_f"`
+	Weather_c   Weather   `json:"weather_c"`
+	Weather_f   Weather   `json:"weather_f"`
 	Valid_until time.Time `json:"valid_until"`
 }
 
@@ -34,12 +34,12 @@ func cacheKey(city string) string {
 }
 
 // Check the cache if already contain the city requested
-func (w* WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather) {
+func (w *WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather) {
 	w.RLock()
 	defer w.RUnlock()
 	weatherCache := w.Weather[cacheKey(city)]
-	if weatherCache.Weather_c.City == ""  {
-		return false, nil 
+	if weatherCache.Weather_c.City == "" {
+		return false, nil
 	}
 
 	if time.Now().Compare(weatherCache.Valid_until) > 0 {
@@ -47,7 +47,7 @@ func (w* WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather)
 	}
 
 	if fahrenheit {
-		return true, &weatherCache.Weather_f 
+		return true, &weatherCache.Weather_f
 
 	}
 
@@ -56,25 +56,25 @@ func (w* WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather)
 }
 
 // Create a new entry on the cache for the requested city
-func (w* WeatherCache) SetWeather(city string, weather Weather, fahrenheit bool) {
+func (w *WeatherCache) SetWeather(city string, weather Weather, fahrenheit bool) {
 	weather_c := weather
 	weather_f := weather
 
 	if fahrenheit {
-		current_temp_c := 5.0/9.0 * (weather.CurrentTemp - 32.0)
-		feels_like_c := 5.0/9.0 * (weather.FeelsLike - 32.0)
-		max_temp_c := 5.0/9.0 * (weather.MaxTemp - 32.0)
-		min_temp_c := 5.0/9.0 * (weather.MinTemp -32.0)
+		current_temp_c := 5.0 / 9.0 * (weather.CurrentTemp - 32.0)
+		feels_like_c := 5.0 / 9.0 * (weather.FeelsLike - 32.0)
+		max_temp_c := 5.0 / 9.0 * (weather.MaxTemp - 32.0)
+		min_temp_c := 5.0 / 9.0 * (weather.MinTemp - 32.0)
 
 		weather_c.CurrentTemp = current_temp_c
 		weather_c.FeelsLike = feels_like_c
 		weather_c.MaxTemp = max_temp_c
 		weather_c.MinTemp = min_temp_c
 	} else {
-		current_temp_f := weather.CurrentTemp * 9.0/5.0 + 32
-		feels_like_f :=  weather.FeelsLike * 9.0/5.0 + 32
-		max_temp_f := weather.MaxTemp * 9.0/5.0 + 32
-		min_temp_f := weather.MinTemp * 9.0/5.0 + 32
+		current_temp_f := weather.CurrentTemp*9.0/5.0 + 32
+		feels_like_f := weather.FeelsLike*9.0/5.0 + 32
+		max_temp_f := weather.MaxTemp*9.0/5.0 + 32
+		min_temp_f := weather.MinTemp*9.0/5.0 + 32
 
 		weather_f.CurrentTemp = current_temp_f
 		weather_f.FeelsLike = feels_like_f
@@ -83,18 +83,15 @@ func (w* WeatherCache) SetWeather(city string, weather Weather, fahrenheit bool)
 	}
 
 	cache := weatherCacheValue{
-		Weather_c: weather_c,
-		Weather_f: weather_f,
+		Weather_c:   weather_c,
+		Weather_f:   weather_f,
 		Valid_until: time.Now().Add(time.Duration(time.Minute * 30)),
 	}
-
 
 	w.Lock()
 	defer w.Unlock()
 	w.Weather[cacheKey(city)] = cache
 }
-
-
 
 type Cache struct {
 	Entries []weatherCacheValue `json:"entries"`
