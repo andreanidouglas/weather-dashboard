@@ -208,25 +208,26 @@ func (h *Handler) HandleLatLon(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	lat_value, err := strconv.ParseFloat(lat, 64)
-	lon_value, err := strconv.ParseFloat(lon, 64)
+	lat_value, lat_err := strconv.ParseFloat(lat, 64)
+	lon_value, lon_err := strconv.ParseFloat(lon, 64)
 
-	if err != nil {
+	if lat_err != nil || lon_err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("{\"error\": \"lat or lon parameters with invalid value. cannot parse float\"}"))
 		return
 
 	}
 
-	lat_lon := model.LatLon{
-		Lat: lat_value,
-		Lon: lon_value,
-	}
-
 	fahrenheit := req.FormValue("fahrenheit")
 	fahrenheit_select := true
 	if len(fahrenheit) == 0 {
 		fahrenheit_select = false
+	}
+
+	lat_lon := model.LatLon{
+		Lat:        lat_value,
+		Lon:        lon_value,
+		Fahrenheit: fahrenheit_select,
 	}
 
 	weather_req, err := model.GetWeatherByLatLon(lat_lon, *h.apiContext)

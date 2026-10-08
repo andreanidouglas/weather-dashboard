@@ -22,6 +22,17 @@ type Location struct {
 
 var GeocodeURL = "https://api.openweathermap.org/geo/1.0/direct"
 
+// Label returns a human readable, unique-enough name, eg "Rome, Lazio, IT".
+func (l Location) Label() string {
+	parts := []string{l.Name}
+	if l.State != "" {
+		parts = append(parts, l.State)
+	}
+	if l.Country != "" {
+		parts = append(parts, l.Country)
+	}
+	return strings.Join(parts, ", ")
+}
 
 // GetLocations queries the OpenWeatherMap geocoding API for city name suggestions.
 // It returns up to limit matching locations. Query shorter than 2 chars returns empty slice.
@@ -55,11 +66,12 @@ func GetLocations(query string, limit int, apiContext *ApiContext) ([]Location, 
 		return nil, err
 	}
 
-	// Deduplicate by Name+Country
+	// Deduplicate by label (Name+State+Country), so eg Rome, Georgia and
+	// Rome, New York are both kept.
 	seen := make(map[string]struct{})
 	unique := make([]Location, 0, len(locations))
 	for _, l := range locations {
-		key := strings.ToLower(l.Name + "|" + l.Country)
+		key := strings.ToLower(l.Label())
 		if _, ok := seen[key]; ok {
 			continue
 		}
@@ -69,5 +81,3 @@ func GetLocations(query string, limit int, apiContext *ApiContext) ([]Location, 
 
 	return unique, nil
 }
-
-

@@ -40,21 +40,36 @@
             cities: [],
             cityInput: '',
 
+            selected: null,
+
+            // When a suggestion is picked, keep its coordinates so the
+            // weather is fetched for that exact place (eg Rome, IT vs Rome, US).
+            remember(ev) {
+                const opt = [...document.querySelectorAll('#city-suggestions option')]
+                    .find((o) => o.value === ev.target.value);
+                if (opt) {
+                    this.selected = { label: opt.value, lat: Number(opt.dataset.lat), lon: Number(opt.dataset.lon) };
+                }
+            },
+
             async setData() {
                 if (this.cityInput !== '') {
+                    const city = (this.selected && this.selected.label === this.cityInput)
+                        ? this.selected
+                        : this.cityInput;
 
-                    let res = await fetch(`api/${this.cityInput}`);
+                    let res = await fetch(cityUrl(city));
                     if (!res.ok) {
                         console.log(`Invalid city ${this.cityInput}`)
                         return;
                     }
 
-                    const gotCity = this.cityInput;
-                    this.cities.push(cityInput.value);
+                    this.cities.push(city);
                     localStorage.setItem('x_cities', JSON.stringify(this.cities));
                     this.cityInput='';
+                    this.selected = null;
                     $nextTick(() => {
-                            refresh_grid(gotCity);
+                            refresh_grid(cityId(city));
                         }
                     );
                 }
@@ -108,6 +123,7 @@
             <input
                class=" my-4 border border-gray-300 rounded-md px-4 py-2 w-auto focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter city..."
                 @keyup.enter="setData"
+                @input="remember"
                 x-model="cityInput"
                 id="cityInput"
                 name="q"
@@ -128,7 +144,7 @@
         <div class="grid xl:grid-cols-3 sm:grid-cols-1 sm:py-2 sm:my-2 sm:gap-4 md:grid-cols-2 xl:gap-4" id="grid">
             <template x-for="city in cities">
 
-                <div :id="`${city.replaceAll(' ', '_').toLowerCase()}_v`" class="cities_c sm:my-2" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="`api/${city}`" hx-include="[name='fahrenheit']"></div>
+                <div :id="cityId(city)" class="cities_c sm:my-2" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="cityUrl(city)" hx-include="[name='fahrenheit']"></div>
 
             </template>
             </div>
@@ -138,9 +154,22 @@
 
          <script>
 
-             function refresh_grid(ev) {
-                 const id = `#${ev.replaceAll(' ', '_').toLowerCase()}_v`
-                 const grid = document.querySelector(id);
+             // A saved city is either a plain name (free text) or a picked
+             // suggestion {label, lat, lon}, which is fetched by coordinates.
+             function cityUrl(city) {
+                 if (typeof city === 'string') {
+                     return `api/${city}`;
+                 }
+                 return `api/pos?lat=${city.lat}&lon=${city.lon}`;
+             }
+
+             function cityId(city) {
+                 const key = typeof city === 'string' ? city : city.label;
+                 return `${key.replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase()}_v`;
+             }
+
+             function refresh_grid(id) {
+                 const grid = document.getElementById(id);
                  htmx.process(grid);
              }
 

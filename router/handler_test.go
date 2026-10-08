@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -17,8 +18,9 @@ import (
 const testAPIKey = "test-api-key"
 
 var (
-	mockWeatherBody = `{"name":"São Paulo","sys":{"country":"BR"},"main":{"temp":22.5,"feels_like":23.0,"temp_min":20.0,"temp_max":25.0,"humidity":65},"weather":[{"main":"Clouds"}],"timezone":-10800}`
-	mockGeocodeBody = `[{"name":"São Paulo","lat":-23.5,"lon":-46.6,"country":"BR","state":"São Paulo"},{"name":"Santos","lat":-23.9,"lon":-46.3,"country":"BR","state":"São Paulo"}]`
+	lastWeatherQuery url.Values
+	mockWeatherBody  = `{"name":"São Paulo","sys":{"country":"BR"},"main":{"temp":22.5,"feels_like":23.0,"temp_min":20.0,"temp_max":25.0,"humidity":65},"weather":[{"main":"Clouds"}],"timezone":-10800}`
+	mockGeocodeBody  = `[{"name":"São Paulo","lat":-23.5,"lon":-46.6,"country":"BR","state":"São Paulo"},{"name":"Santos","lat":-23.9,"lon":-46.3,"country":"BR","state":"São Paulo"}]`
 )
 
 // setup creates a fake OpenWeatherMap server and a router handler pointing at it.
@@ -29,6 +31,7 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/data/2.5/weather"):
+			lastWeatherQuery = r.URL.Query()
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, mockWeatherBody)
 		case strings.HasPrefix(r.URL.Path, "/geo/1.0/direct"):
@@ -227,11 +230,37 @@ func TestHandleSuggest(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", resp.StatusCode, string(body))
 	}
 
-	if !strings.Contains(string(body), `<option value="São Paulo">`) {
-		t.Errorf("expected São Paulo option, got: %s", string(body))
+	if !strings.Contains(string(body), `<option value="São Paulo, São Paulo, BR" data-lat="-23.5" data-lon="-46.6">`) {
+		t.Errorf("expected São Paulo option with coordinates, got: %s", string(body))
 	}
-	if !strings.Contains(string(body), "BR") {
-		t.Errorf("expected country code, got: %s", string(body))
+}
+
+func TestHandleSuggestSameNameCities(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	orig := mockGeocodeBody
+	mockGeocodeBody = `[{"name":"Rome","lat":34.25,"lon":-85.16,"country":"US","state":"Georgia"},{"name":"Rome","lat":43.21,"lon":-75.45,"country":"US","state":"New York"},{"name":"Rome","lat":41.89,"lon":12.48,"country":"IT","state":"Lazio"}]`
+	defer func() { mockGeocodeBody = orig }()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/api/suggest?q=rome")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	for _, want := range []string{
+		`<option value="Rome, Georgia, US" data-lat="34.25" data-lon="-85.16">`,
+		`<option value="Rome, New York, US" data-lat="43.21" data-lon="-75.45">`,
+		`<option value="Rome, Lazio, IT" data-lat="41.89" data-lon="12.48">`,
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("expected %s, got: %s", want, string(body))
+		}
 	}
 }
 
@@ -345,5 +374,26 @@ func TestHandleLatLonMissingParam(t *testing.T) {
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestHandleLatLonFahrenheit(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/api/pos?lat=41.89&lon=12.48&fahrenheit=yes")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	resp.Body.Close()
+
+	if got := lastWeatherQuery.Get("units"); got != "imperial" {
+		t.Errorf("expected units=imperial, got %q", got)
+	}
+	if lastWeatherQuery.Get("lat") != "41.890000" || lastWeatherQuery.Get("lon") != "12.480000" {
+		t.Errorf("expected lat/lon forwarded, got %v", lastWeatherQuery)
 	}
 }
