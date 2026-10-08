@@ -21,9 +21,9 @@ To run the program standalone, you need to setup the `STANDALONE` and `API_KEY` 
 
 Make sure you have the following dependencies installed
 
-1. golang>=1.23
-2. node>=v.21.6.2
-3. templ>=0.3.819
+1. golang>=1.26
+2. node>=22
+3. templ>=0.3.1070
 4. gnu make>=4.3
 5. [optional] docker or podman
 

@@ -28,7 +28,7 @@ services:
       - "traefik.http.services.be.loadBalancer.healthcheck.path=/health"
       - "traefik.http.routers.be.observability.accesslogs=false"
   web:
-    image: traefik:3.6
+    image: traefik:3.7
     command: 
       - "--api.insecure=true"
       - "--providers.docker=true"

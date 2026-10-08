@@ -1,12 +1,12 @@
-FROM golang:1.25-bookworm AS build
-RUN go install github.com/a-h/templ/cmd/templ@latest
+FROM golang:1.27-trixie AS build
+RUN go install github.com/a-h/templ/cmd/templ@v0.3.1070
 WORKDIR /app
 ENV CGO_ENABLED=0
 COPY . .
 RUN templ generate -v
 RUN go build -o server cmd/api/main.go
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 LABEL org.opencontainers.image.source=https://github.com/andreanidouglas/weather-dashboard
 LABEL org.opencontainers.image.description="Weather Dashboard API Image"
 LABEL org.opencontainers.image.licenses=MIT

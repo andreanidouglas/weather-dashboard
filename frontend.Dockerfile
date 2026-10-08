@@ -1,4 +1,4 @@
-FROM node:lts-bookworm-slim AS builder
+FROM node:lts-trixie-slim AS builder
 COPY . /app/
 
 WORKDIR /app/view
