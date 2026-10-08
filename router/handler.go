@@ -175,7 +175,7 @@ func (h *Handler) cachedWeather(cityRequest model.WeatherRequest) (*model.Weathe
 	if err != nil {
 		return nil, err
 	}
-	go h.cache.SetWeather(*weather, cityRequest.Fahrenheit)
+	h.cache.SetWeather(cityRequest.City, *weather, cityRequest.Fahrenheit)
 	return weather, nil
 }
 
@@ -221,27 +221,16 @@ func (h *Handler) HandleWeather(w http.ResponseWriter, req *http.Request) {
 		Fahrenheit: fahrenheit_select,
 	}
 
-	ok, weather := h.cache.GetWeather(cityRequest.City, cityRequest.Fahrenheit)
-	if !ok {
-		log.Printf("Cache miss for %s", cityRequest.City)
-		weather_req, err := model.GetWeather(cityRequest, h.apiContext)
-		if err != nil {
-			w.WriteHeader(500)
-			w.Write([]byte("Could not get weather request"))
-			return
-		}
-
-		weather = weather_req
-		// TODO: if request city is changed by the API (eg Sao Paulo -> São Paulo)
-		//       the cache will always miss
-		go h.cache.SetWeather(*weather_req, cityRequest.Fahrenheit)
-	} else {
-		log.Printf("Cache hit for %s", cityRequest.City)
+	weather, err := h.cachedWeather(cityRequest)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Could not get weather request"))
+		return
 	}
 
 	// uses templ to render the template as HTML
 	component := template.Weather(*weather, cityRequest)
-	err := component.Render(req.Context(), w)
+	err = component.Render(req.Context(), w)
 	if err != nil {
 		w.WriteHeader(500)
 		log.Printf("Error rendering template %v", err)

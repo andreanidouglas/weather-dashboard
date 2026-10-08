@@ -470,3 +470,46 @@ func TestHandleWeatherAPIBadRequests(t *testing.T) {
 		}
 	}
 }
+
+// The cache must be keyed by the requested city, not the name the API returns:
+// "Rome,IT" and "Rome" both come back as "Rome" but are different requests.
+func TestCacheKeyedByRequestedCity(t *testing.T) {
+	routes := map[string]func(city string) string{
+		"html":    func(c string) string { return "/api/" + url.PathEscape(c) },
+		"text":    func(c string) string { return "/api/text/" + url.PathEscape(c) },
+		"weather": func(c string) string { return "/api/weather?city=" + url.QueryEscape(c) },
+	}
+	for name, path := range routes {
+		t.Run(name, func(t *testing.T) {
+			h, _, cleanup := setup(t)
+			defer cleanup()
+			orig := mockWeatherBody
+			defer func() { mockWeatherBody = orig }()
+
+			server := httptest.NewServer(newTestRouter(h))
+			defer server.Close()
+
+			mockWeatherBody = `{"name":"Rome","sys":{"country":"IT"},"main":{"temp":20},"weather":[{"main":"Clear"}]}`
+			if _, body := getBody(t, server.URL+path("Rome,IT")); !strings.Contains(body, "IT") {
+				t.Fatalf("expected Rome, IT, got: %s", body)
+			}
+
+			lastWeatherQuery = nil
+			mockWeatherBody = `{"name":"Rome","sys":{"country":"US"},"main":{"temp":10},"weather":[{"main":"Rain"}]}`
+			_, body := getBody(t, server.URL+path("Rome"))
+			if got := lastWeatherQuery.Get("q"); got != "Rome" {
+				t.Errorf("expected upstream request for %q, got %q (served from cache?)", "Rome", got)
+			}
+			if !strings.Contains(body, "US") {
+				t.Errorf("expected Rome, US, got: %s", body)
+			}
+
+			// Same request with different case/whitespace is a cache hit.
+			lastWeatherQuery = nil
+			getBody(t, server.URL+path(" rome "))
+			if lastWeatherQuery != nil {
+				t.Errorf("expected cache hit for %q, got upstream request %v", " rome ", lastWeatherQuery)
+			}
+		})
+	}
+}

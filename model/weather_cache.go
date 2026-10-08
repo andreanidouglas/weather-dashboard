@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -25,11 +26,18 @@ func NewCache() WeatherCache {
 	}
 }
 
+// cacheKey normalizes the requested city so " Rome " and "rome" share an entry.
+// Entries are keyed by the request, not the city name the API returns, since
+// different requests (eg "Rome,IT" and "Rome,US") can return the same name.
+func cacheKey(city string) string {
+	return strings.ToLower(strings.TrimSpace(city))
+}
+
 // Check the cache if already contain the city requested
 func (w* WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather) {
 	w.RLock()
 	defer w.RUnlock()
-	weatherCache := w.Weather[city]
+	weatherCache := w.Weather[cacheKey(city)]
 	if weatherCache.Weather_c.City == ""  {
 		return false, nil 
 	}
@@ -47,8 +55,8 @@ func (w* WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather)
 
 }
 
-// Create a new entry on the cache
-func (w* WeatherCache) SetWeather(weather Weather, fahrenheit bool) {
+// Create a new entry on the cache for the requested city
+func (w* WeatherCache) SetWeather(city string, weather Weather, fahrenheit bool) {
 	weather_c := weather
 	weather_f := weather
 
@@ -83,7 +91,7 @@ func (w* WeatherCache) SetWeather(weather Weather, fahrenheit bool) {
 
 	w.Lock()
 	defer w.Unlock()
-	w.Weather[weather.City] = cache
+	w.Weather[cacheKey(city)] = cache
 }
 
 
@@ -97,6 +105,8 @@ func GetCache(cache *WeatherCache) (Cache, error) {
 
 	retCache.Entries = make([]weatherCacheValue, 0)
 
+	cache.RLock()
+	defer cache.RUnlock()
 	for _, value := range cache.Weather {
 		retCache.Entries = append(retCache.Entries, value)
 	}
