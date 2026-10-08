@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Orb setup: installs Go, templ, air, and project dependencies.
+# Idempotent; fast when run on a warm snapshot.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+GO_VERSION="1.25.14"   # matches `go 1.25.0` in go.mod
+AIR_VERSION="v1.67.1"  # last air release that builds with Go 1.25
+
+step() {
+  local name="$1"; shift
+  local start=$SECONDS
+  echo "==> $name"
+  "$@"
+  echo "    done in $((SECONDS - start))s"
+}
+
+install_go() {
+  if [ -x /usr/local/go/bin/go ] && [ "$(/usr/local/go/bin/go env GOVERSION)" = "go$GO_VERSION" ]; then
+    echo "    go$GO_VERSION already installed"
+  else
+    local arch
+    case "$(uname -m)" in
+      x86_64) arch=amd64 ;;
+      aarch64 | arm64) arch=arm64 ;;
+      *) echo "unsupported arch $(uname -m)" >&2; exit 1 ;;
+    esac
+    curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" -o /tmp/go.tgz
+    sudo rm -rf /usr/local/go
+    sudo tar -C /usr/local -xzf /tmp/go.tgz
+    rm -f /tmp/go.tgz
+  fi
+  # Symlinks put go on PATH for every shell without profile edits.
+  sudo ln -sfn /usr/local/go/bin/go /usr/local/bin/go
+  sudo ln -sfn /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+}
+
+go_tool() {
+  local name="$1" pkg="$2" version="$3"
+  local bin
+  bin="$(go env GOPATH)/bin/$name"
+  if [ -x "$bin" ] && go version -m "$bin" | grep -q "mod.*[[:space:]]$version[[:space:]]"; then
+    echo "    $name $version already installed"
+  else
+    go install "$pkg@$version"
+  fi
+  sudo ln -sfn "$bin" "/usr/local/bin/$name"
+}
+
+install_tools() {
+  # templ CLI pinned to the runtime version in go.mod so generated code matches.
+  local templ_version
+  templ_version="$(go list -m -f '{{.Version}}' github.com/a-h/templ)"
+  go_tool templ github.com/a-h/templ/cmd/templ "$templ_version"
+  go_tool air github.com/air-verse/air "$AIR_VERSION"
+}
+
+go_deps() {
+  go mod download
+  go build -o /dev/null ./...  # warms the build cache
+}
+
+npm_deps() {
+  (cd view && npm ci --no-audit --no-fund --prefer-offline)
+}
+
+step "Go $GO_VERSION" install_go
+step "Go tools (templ, air)" install_tools
+step "Go modules + build cache" go_deps
+step "npm dependencies (view/)" npm_deps
+
+echo "Setup complete."

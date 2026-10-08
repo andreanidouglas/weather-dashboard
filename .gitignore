@@ -3,3 +3,4 @@ tmp/
 view/node_modules
 _templ.go
 traefik_data/
+.amp/portals/*
