@@ -5,8 +5,8 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-GO_VERSION="1.25.14"   # matches `go 1.25.0` in go.mod
-AIR_VERSION="v1.67.1"  # last air release that builds with Go 1.25
+GO_VERSION="1.27.2"    # satisfies `go 1.26.0` in go.mod
+AIR_VERSION="v1.67.4"
 
 step() {
   local name="$1"; shift
