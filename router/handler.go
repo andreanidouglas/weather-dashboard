@@ -28,20 +28,6 @@ func NewHandler(standalone bool, apiCtx *model.ApiContext, cache *model.WeatherC
 	}
 }
 
-// FileServer serves static files from root under the given path prefix.
-// ServeMux redirects requests for path without the trailing slash.
-func (h *Handler) FileServer(mux *http.ServeMux, path string, root http.FileSystem) {
-	if strings.ContainsAny(path, "{}") {
-		panic("FileServer does not permit any URL parameters.")
-	}
-
-	if !strings.HasSuffix(path, "/") {
-		path += "/"
-	}
-
-	mux.Handle("GET "+path, http.StripPrefix(strings.TrimSuffix(path, "/"), http.FileServer(root)))
-}
-
 // HandleTextWeather serves GET /api/text/<city> as plain text.
 func (h *Handler) HandleTextWeather(w http.ResponseWriter, req *http.Request) {
 

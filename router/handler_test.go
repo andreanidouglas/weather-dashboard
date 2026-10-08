@@ -61,17 +61,7 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 }
 
 func newTestRouter(h *router.Handler) http.Handler {
-	r := http.NewServeMux()
-	r.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	r.HandleFunc("GET /api/text/{city}", h.HandleTextWeather)
-	r.HandleFunc("GET /api/weather", h.HandleWeatherAPI)
-	r.HandleFunc("GET /api/pos", h.HandleLatLon)
-	r.HandleFunc("GET /api/suggest", h.HandleSuggest)
-	r.HandleFunc("GET /api/cache", h.HandleCache)
-	r.HandleFunc("GET /api/{city}", h.HandleWeather)
-	return r
+	return h.Routes()
 }
 
 func TestHealth(t *testing.T) {
