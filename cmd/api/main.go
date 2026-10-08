@@ -82,6 +82,7 @@ func main() {
 		httprate.WithKeyFuncs(httprate.KeyByRealIP, httprate.KeyByEndpoint),
 	)
 	mux.Handle("GET /api/text/{city}", limit(http.HandlerFunc(w.HandleTextWeather)))
+	mux.Handle("GET /api/weather", limit(http.HandlerFunc(w.HandleWeatherAPI))) // eg: /api/weather?city=London&format=json
 	mux.Handle("GET /api/{city}", limit(http.HandlerFunc(w.HandleWeather)))
 	mux.Handle("GET /api/suggest", limit(http.HandlerFunc(w.HandleSuggest)))
 	mux.Handle("GET /api/cache", limit(http.HandlerFunc(w.HandleCache)))

@@ -2,6 +2,7 @@ package router_test
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -65,6 +66,7 @@ func newTestRouter(h *router.Handler) http.Handler {
 		w.WriteHeader(http.StatusOK)
 	})
 	r.HandleFunc("GET /api/text/{city}", h.HandleTextWeather)
+	r.HandleFunc("GET /api/weather", h.HandleWeatherAPI)
 	r.HandleFunc("GET /api/pos", h.HandleLatLon)
 	r.HandleFunc("GET /api/suggest", h.HandleSuggest)
 	r.HandleFunc("GET /api/cache", h.HandleCache)
@@ -392,5 +394,79 @@ func TestHandleLatLonFahrenheit(t *testing.T) {
 	}
 	if lastWeatherQuery.Get("lat") != "41.890000" || lastWeatherQuery.Get("lon") != "12.480000" {
 		t.Errorf("expected lat/lon forwarded, got %v", lastWeatherQuery)
+	}
+}
+
+func getBody(t *testing.T, url string) (*http.Response, string) {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp, string(body)
+}
+
+func TestHandleWeatherAPIFormats(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+	base := server.URL + "/api/weather?city=S%C3%A3o%20Paulo"
+
+	// text is the default format
+	resp, body := getBody(t, base)
+	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
+		t.Fatalf("expected 200 text/plain, got %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if !strings.Contains(body, "Weather for São Paulo, BR") || !strings.Contains(body, "Current: 22.5°C") {
+		t.Errorf("unexpected text body: %s", body)
+	}
+
+	resp, body = getBody(t, base+"&format=json")
+	if resp.Header.Get("Content-Type") != "application/json" {
+		t.Errorf("expected application/json, got %s", resp.Header.Get("Content-Type"))
+	}
+	var j map[string]any
+	if err := json.Unmarshal([]byte(body), &j); err != nil {
+		t.Fatalf("invalid json: %v: %s", err, body)
+	}
+	if j["city"] != "São Paulo" || j["country"] != "BR" || j["current_temp"] != 22.5 || j["units"] != "metric" || j["condition"] != "Clouds" {
+		t.Errorf("unexpected json: %s", body)
+	}
+
+	resp, body = getBody(t, base+"&format=XML&fahrenheit=yes")
+	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/xml") {
+		t.Errorf("expected application/xml, got %s", resp.Header.Get("Content-Type"))
+	}
+	var x struct {
+		XMLName     xml.Name `xml:"weather"`
+		City        string   `xml:"city"`
+		Units       string   `xml:"units"`
+		CurrentTemp float64  `xml:"current_temp"`
+	}
+	if err := xml.Unmarshal([]byte(body), &x); err != nil {
+		t.Fatalf("invalid xml: %v: %s", err, body)
+	}
+	// served from the cache filled by the metric requests above, converted to °F
+	if x.City != "São Paulo" || x.Units != "imperial" || x.CurrentTemp != 72.5 {
+		t.Errorf("unexpected xml: %s", body)
+	}
+}
+
+func TestHandleWeatherAPIBadRequests(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+
+	for _, path := range []string{"/api/weather", "/api/weather?city=%20", "/api/weather?city=London&format=yaml"} {
+		resp, body := getBody(t, server.URL+path)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s: expected 400, got %d: %s", path, resp.StatusCode, body)
+		}
 	}
 }
