@@ -15,7 +15,6 @@ ENV TZ="America/Sao Paulo"
 RUN apt update && apt install ca-certificates curl -y --no-install-recommends
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-RUN 
 COPY --from=build /app/server /app/server
 EXPOSE 8080
 ENV STANDALONE=false
