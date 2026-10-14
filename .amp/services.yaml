@@ -1,0 +1,10 @@
+services:
+  web:
+    # Builds and serves the API plus the static frontend (STANDALONE=true).
+    # API_KEY (OpenWeatherMap) comes from the project secret.
+    # The server listens on a hardcoded 0.0.0.0:8080.
+    command: go build -o tmp/server ./cmd/api && STANDALONE=true exec tmp/server
+    port: 8080
+    health: /health
+    portal:
+      title: Weather Dashboard

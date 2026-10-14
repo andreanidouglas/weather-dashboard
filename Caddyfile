@@ -1,0 +1,26 @@
+{
+	log {
+		output file /data/caddy.log
+		level INFO
+	}
+}
+
+:80 {
+	log {
+		output file /data/access.log
+		format json
+	}
+	log_skip /api*
+
+	handle /api* {
+		reverse_proxy api:8080 {
+			health_uri /health
+		}
+	}
+
+	handle {
+		reverse_proxy frontend:80 {
+			health_uri /
+		}
+	}
+}

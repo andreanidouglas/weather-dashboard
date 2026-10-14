@@ -2,23 +2,25 @@ package router_test
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/andreanidouglas/weather-dashboard/model"
 	"github.com/andreanidouglas/weather-dashboard/router"
-	"github.com/go-chi/chi/v5"
 )
 
 const testAPIKey = "test-api-key"
 
 var (
-	mockWeatherBody = `{"name":"São Paulo","sys":{"country":"BR"},"main":{"temp":22.5,"feels_like":23.0,"temp_min":20.0,"temp_max":25.0,"humidity":65},"weather":[{"main":"Clouds"}],"timezone":-10800}`
-	mockGeocodeBody = `[{"name":"São Paulo","lat":-23.5,"lon":-46.6,"country":"BR","state":"São Paulo"},{"name":"Santos","lat":-23.9,"lon":-46.3,"country":"BR","state":"São Paulo"}]`
+	lastWeatherQuery url.Values
+	mockWeatherBody  = `{"name":"São Paulo","sys":{"country":"BR"},"main":{"temp":22.5,"feels_like":23.0,"temp_min":20.0,"temp_max":25.0,"humidity":65},"weather":[{"main":"Clouds"}],"timezone":-10800}`
+	mockGeocodeBody  = `[{"name":"São Paulo","lat":-23.5,"lon":-46.6,"country":"BR","state":"São Paulo"},{"name":"Santos","lat":-23.9,"lon":-46.3,"country":"BR","state":"São Paulo"}]`
 )
 
 // setup creates a fake OpenWeatherMap server and a router handler pointing at it.
@@ -29,6 +31,7 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/data/2.5/weather"):
+			lastWeatherQuery = r.URL.Query()
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, mockWeatherBody)
 		case strings.HasPrefix(r.URL.Path, "/geo/1.0/direct"):
@@ -57,19 +60,8 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 	return h, owm, cleanup
 }
 
-func newTestRouter(h *router.Handler) chi.Router {
-	r := chi.NewRouter()
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	r.Route("/api", func(r chi.Router) {
-		r.Get("/text/{city}", h.HandleTextWeather)
-		r.Get("/pos", h.HandleLatLon)
-		r.Get("/suggest", h.HandleSuggest)
-		r.Get("/cache", h.HandleCache)
-		r.Get("/{city}", h.HandleWeather)
-	})
-	return r
+func newTestRouter(h *router.Handler) http.Handler {
+	return h.Routes()
 }
 
 func TestHealth(t *testing.T) {
@@ -227,11 +219,37 @@ func TestHandleSuggest(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", resp.StatusCode, string(body))
 	}
 
-	if !strings.Contains(string(body), `<option value="São Paulo">`) {
-		t.Errorf("expected São Paulo option, got: %s", string(body))
+	if !strings.Contains(string(body), `<option value="São Paulo, São Paulo, BR" data-lat="-23.5" data-lon="-46.6">`) {
+		t.Errorf("expected São Paulo option with coordinates, got: %s", string(body))
 	}
-	if !strings.Contains(string(body), "BR") {
-		t.Errorf("expected country code, got: %s", string(body))
+}
+
+func TestHandleSuggestSameNameCities(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	orig := mockGeocodeBody
+	mockGeocodeBody = `[{"name":"Rome","lat":34.25,"lon":-85.16,"country":"US","state":"Georgia"},{"name":"Rome","lat":43.21,"lon":-75.45,"country":"US","state":"New York"},{"name":"Rome","lat":41.89,"lon":12.48,"country":"IT","state":"Lazio"}]`
+	defer func() { mockGeocodeBody = orig }()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/api/suggest?q=rome")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	for _, want := range []string{
+		`<option value="Rome, Georgia, US" data-lat="34.25" data-lon="-85.16">`,
+		`<option value="Rome, New York, US" data-lat="43.21" data-lon="-75.45">`,
+		`<option value="Rome, Lazio, IT" data-lat="41.89" data-lon="12.48">`,
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("expected %s, got: %s", want, string(body))
+		}
 	}
 }
 
@@ -345,5 +363,143 @@ func TestHandleLatLonMissingParam(t *testing.T) {
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestHandleLatLonFahrenheit(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/api/pos?lat=41.89&lon=12.48&fahrenheit=yes")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	resp.Body.Close()
+
+	if got := lastWeatherQuery.Get("units"); got != "imperial" {
+		t.Errorf("expected units=imperial, got %q", got)
+	}
+	if lastWeatherQuery.Get("lat") != "41.890000" || lastWeatherQuery.Get("lon") != "12.480000" {
+		t.Errorf("expected lat/lon forwarded, got %v", lastWeatherQuery)
+	}
+}
+
+func getBody(t *testing.T, url string) (*http.Response, string) {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp, string(body)
+}
+
+func TestHandleWeatherAPIFormats(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+	base := server.URL + "/api/weather?city=S%C3%A3o%20Paulo"
+
+	// text is the default format
+	resp, body := getBody(t, base)
+	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
+		t.Fatalf("expected 200 text/plain, got %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if !strings.Contains(body, "Weather for São Paulo, BR") || !strings.Contains(body, "Current: 22.5°C") {
+		t.Errorf("unexpected text body: %s", body)
+	}
+
+	resp, body = getBody(t, base+"&format=json")
+	if resp.Header.Get("Content-Type") != "application/json" {
+		t.Errorf("expected application/json, got %s", resp.Header.Get("Content-Type"))
+	}
+	var j map[string]any
+	if err := json.Unmarshal([]byte(body), &j); err != nil {
+		t.Fatalf("invalid json: %v: %s", err, body)
+	}
+	if j["city"] != "São Paulo" || j["country"] != "BR" || j["current_temp"] != 22.5 || j["units"] != "metric" || j["condition"] != "Clouds" {
+		t.Errorf("unexpected json: %s", body)
+	}
+
+	resp, body = getBody(t, base+"&format=XML&fahrenheit=yes")
+	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/xml") {
+		t.Errorf("expected application/xml, got %s", resp.Header.Get("Content-Type"))
+	}
+	var x struct {
+		XMLName     xml.Name `xml:"weather"`
+		City        string   `xml:"city"`
+		Units       string   `xml:"units"`
+		CurrentTemp float64  `xml:"current_temp"`
+	}
+	if err := xml.Unmarshal([]byte(body), &x); err != nil {
+		t.Fatalf("invalid xml: %v: %s", err, body)
+	}
+	// served from the cache filled by the metric requests above, converted to °F
+	if x.City != "São Paulo" || x.Units != "imperial" || x.CurrentTemp != 72.5 {
+		t.Errorf("unexpected xml: %s", body)
+	}
+}
+
+func TestHandleWeatherAPIBadRequests(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+
+	for _, path := range []string{"/api/weather", "/api/weather?city=%20", "/api/weather?city=London&format=yaml"} {
+		resp, body := getBody(t, server.URL+path)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s: expected 400, got %d: %s", path, resp.StatusCode, body)
+		}
+	}
+}
+
+// The cache must be keyed by the requested city, not the name the API returns:
+// "Rome,IT" and "Rome" both come back as "Rome" but are different requests.
+func TestCacheKeyedByRequestedCity(t *testing.T) {
+	routes := map[string]func(city string) string{
+		"html":    func(c string) string { return "/api/" + url.PathEscape(c) },
+		"text":    func(c string) string { return "/api/text/" + url.PathEscape(c) },
+		"weather": func(c string) string { return "/api/weather?city=" + url.QueryEscape(c) },
+	}
+	for name, path := range routes {
+		t.Run(name, func(t *testing.T) {
+			h, _, cleanup := setup(t)
+			defer cleanup()
+			orig := mockWeatherBody
+			defer func() { mockWeatherBody = orig }()
+
+			server := httptest.NewServer(newTestRouter(h))
+			defer server.Close()
+
+			mockWeatherBody = `{"name":"Rome","sys":{"country":"IT"},"main":{"temp":20},"weather":[{"main":"Clear"}]}`
+			if _, body := getBody(t, server.URL+path("Rome,IT")); !strings.Contains(body, "IT") {
+				t.Fatalf("expected Rome, IT, got: %s", body)
+			}
+
+			lastWeatherQuery = nil
+			mockWeatherBody = `{"name":"Rome","sys":{"country":"US"},"main":{"temp":10},"weather":[{"main":"Rain"}]}`
+			_, body := getBody(t, server.URL+path("Rome"))
+			if got := lastWeatherQuery.Get("q"); got != "Rome" {
+				t.Errorf("expected upstream request for %q, got %q (served from cache?)", "Rome", got)
+			}
+			if !strings.Contains(body, "US") {
+				t.Errorf("expected Rome, US, got: %s", body)
+			}
+
+			// Same request with different case/whitespace is a cache hit.
+			lastWeatherQuery = nil
+			getBody(t, server.URL+path(" rome "))
+			if lastWeatherQuery != nil {
+				t.Errorf("expected cache hit for %q, got upstream request %v", " rome ", lastWeatherQuery)
+			}
+		})
 	}
 }

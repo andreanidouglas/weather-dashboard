@@ -2,4 +2,5 @@ out/
 tmp/
 view/node_modules
 _templ.go
-traefik_data/
+caddy_data/
+.amp/portals/*

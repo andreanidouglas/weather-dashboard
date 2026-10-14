@@ -6,26 +6,26 @@ import (
 )
 
 templ Weather(weather model.Weather, request model.WeatherRequest) {
-	<div x-ref="we" class="relative bg-gray-300 pt-4 pb-4 shadow-xl ring-1 ring-gray-900/5 rounded-lg px-8">
-		<button class="bg-gray-300 text-sm border-solid align-left text-left" x-on:click="remove()">x</button>
-		<div class="items-center text-center text-lg text-pretty text-blue-900">
+	<div x-ref="we" class="relative bg-gray-300 py-4 px-4 sm:px-8 shadow-xl ring-1 ring-gray-900/5 rounded-lg">
+		<button type="button" aria-label="Remove city" class="absolute top-1 right-1 flex items-center justify-center w-11 h-11 rounded-full text-xl leading-none text-gray-600 hover:bg-gray-400/50 hover:text-gray-900" x-on:click="remove()">&times;</button>
+		<div class="items-center text-center text-lg text-pretty text-blue-900 px-10">
 			<p>{ weather.City }, {weather.Country }</p>
 		</div>
 		<div class="grid grid-cols-1 divide-y">
 			<div class="text-center text-4xl py-3 text-blue-950">
 				{ strconv.FormatFloat(weather.CurrentTemp, 'f', 1, 32) }
 				if request.Fahrenheit {
-					ºF
+					°F
 				} else {
-					ºC
+					°C
 				}
 			</div>
 			<div class="text-center text-gray-600">
 				Feels like: { strconv.FormatFloat(weather.FeelsLike, 'f', 1, 32) }
 				if request.Fahrenheit {
-					ºF
+					°F
 				} else {
-					ºC
+					°C
 				}
 				; { weather.Condition }
 				<br/>

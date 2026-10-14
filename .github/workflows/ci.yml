@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go (fmt, generate, vet, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Install templ (version from go.mod)
+        run: go install github.com/a-h/templ/cmd/templ@$(go list -m -f '{{.Version}}' github.com/a-h/templ)
+
+      - name: Check generated templ files and go.mod are up to date
+        run: |
+          templ generate
+          go mod tidy
+          git diff --exit-code -- template go.mod go.sum \
+            || { echo "::error::Run 'templ generate' and 'go mod tidy', then commit the result."; exit 1; }
+
+      - name: Check gofmt
+        run: |
+          unformatted=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$unformatted" ]; then
+            echo "::error::Run gofmt -w on: $unformatted"
+            exit 1
+          fi
+
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: go build -v ./...
+
+  frontend:
+    name: Frontend (Tailwind CSS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: view/package-lock.json
+
+      - name: Build CSS
+        working-directory: view
+        run: |
+          npm ci
+          npx tailwindcss --input ./input.css --output ./src/css/style.css --minify
+
+      - name: Check committed style.css is up to date
+        run: |
+          git diff --exit-code -- view/src/css/style.css \
+            || { echo "::error::Rebuild view/src/css/style.css (make view) and commit it."; exit 1; }
+
+  docker:
+    name: Docker (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [api, frontend]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.image }}.Dockerfile
+          push: false
+          tags: andreanidouglas/weather-dashboard-${{ matrix.image }}:ci
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

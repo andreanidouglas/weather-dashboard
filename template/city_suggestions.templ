@@ -1,9 +1,14 @@
 package template
 
-import "github.com/andreanidouglas/weather-dashboard/model"
+import (
+	"fmt"
+	"github.com/andreanidouglas/weather-dashboard/model"
+)
 
+// Each option's value is a unique label (eg "Rome, Lazio, IT") so same-named
+// cities stay distinguishable; the frontend reads lat/lon from data attributes.
 templ CitySuggestions(locations []model.Location) {
 	for _, l := range locations {
-		<option value={ l.Name }>{ l.Name }, { l.Country }</option>
+		<option value={ l.Label() } data-lat={ fmt.Sprint(l.Lat) } data-lon={ fmt.Sprint(l.Lon) }>{ l.Label() }</option>
 	}
 }
