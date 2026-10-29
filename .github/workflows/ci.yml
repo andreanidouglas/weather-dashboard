@@ -23,15 +23,12 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install templ (version from go.mod)
-        run: go install github.com/a-h/templ/cmd/templ@$(go list -m -f '{{.Version}}' github.com/a-h/templ)
-
       - name: Check generated templ files and go.mod are up to date
         run: |
-          templ generate
+          go tool templ generate
           go mod tidy
           git diff --exit-code -- template go.mod go.sum \
-            || { echo "::error::Run 'templ generate' and 'go mod tidy', then commit the result."; exit 1; }
+            || { echo "::error::Run 'go tool templ generate' and 'go mod tidy', then commit the result."; exit 1; }
 
       - name: Check gofmt
         run: |

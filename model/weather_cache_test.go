@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -8,33 +9,55 @@ import (
 func TestWeatherCacheCoordinateStrategy(t *testing.T) {
 	cache := NewCache()
 	t.Cleanup(cache.Close)
-	if hit, weather := cache.GetWeather("unknown", false); hit || weather != nil {
+	if hit, weather := cache.GetWeather("unknown"); hit || weather != nil {
 		t.Fatalf("missing city lookup = (%v, %v), want a miss", hit, weather)
 	}
 
 	cache.SetWeather("Rome, Lazio", Weather{
 		Coordinates: Coordinates{Lat: 41.9028, Lon: 12.4964},
 		City:        "Rome",
-		CurrentTemp: 20,
-	}, false)
+		Celsius:     Temperature{Unit: UnitCelsius, Current: 20},
+	})
 
-	if hit, weather := cache.GetWeather("rome", false); hit || weather != nil {
+	if hit, weather := cache.GetWeather("rome"); hit || weather != nil {
 		t.Fatalf("unrequested canonical city lookup = (%v, %v), want a miss", hit, weather)
 	}
 
 	cache.SetWeather("Roma", Weather{
 		Coordinates: Coordinates{Lat: 41.9099, Lon: 12.4999},
 		City:        "Roma",
-		CurrentTemp: 21,
-	}, false)
+		Celsius: Temperature{
+			Unit:      UnitCelsius,
+			Current:   21,
+			FeelsLike: 20,
+			Max:       22,
+			Min:       18,
+		},
+	})
 
-	if hit, weather := cache.GetWeatherByCoordinates(Coordinates{Lat: 41.9099, Lon: 12.4999}, false); !hit {
+	if hit, weather := cache.GetWeatherByCoordinates(Coordinates{Lat: 41.9099, Lon: 12.4999}); !hit {
 		t.Fatal("coordinate lookup was a miss, want a hit")
-	} else if weather.CurrentTemp != 21 || weather.Coordinates != (Coordinates{Lat: 41.90, Lon: 12.49}) {
-		t.Errorf("coordinate lookup = %+v, want latest weather with floored coordinates", weather)
+	} else {
+		wantFahrenheit := Temperature{
+			Unit:      UnitFahrenheit,
+			Current:   69.8,
+			FeelsLike: 68,
+			Max:       71.6,
+			Min:       64.4,
+		}
+		if weather.Celsius.Current != 21 {
+			t.Errorf("coordinate lookup Celsius temperature = %+v, want current 21", weather.Celsius)
+		}
+		if weather.Fahrenheit != wantFahrenheit {
+			t.Errorf("coordinate lookup Fahrenheit temperature = %+v, want %+v", weather.Fahrenheit, wantFahrenheit)
+		}
+		wantCoordinates := Coordinates{Lat: 41.90, Lon: 12.49}
+		if weather.Coordinates != wantCoordinates {
+			t.Errorf("coordinate lookup coordinates = %+v, want %+v", weather.Coordinates, wantCoordinates)
+		}
 	}
 
-	if hit, weather := cache.GetWeather("rome, lazio", false); !hit || weather.CurrentTemp != 21 {
+	if hit, weather := cache.GetWeather("rome, lazio"); !hit || weather.Celsius.Current != 21 {
 		t.Errorf("first city alias lookup = (%v, %v), want shared coordinate entry", hit, weather)
 	}
 
@@ -53,21 +76,61 @@ func TestWeatherCacheCoordinateStrategy(t *testing.T) {
 	}
 }
 
+func TestWeatherCacheNormalizesFahrenheit(t *testing.T) {
+	cache := NewCache()
+	t.Cleanup(cache.Close)
+
+	cache.SetWeather("São Paulo", Weather{
+		Coordinates: Coordinates{Lat: -23.5, Lon: -46.6},
+		City:        "São Paulo",
+		Fahrenheit: Temperature{
+			Unit:      UnitFahrenheit,
+			Current:   72.5,
+			FeelsLike: 73.4,
+			Max:       77,
+			Min:       68,
+		},
+	})
+
+	hit, weather := cache.GetWeather("são paulo")
+	if !hit {
+		t.Fatal("city lookup was a miss, want a hit")
+	}
+	if weather.Fahrenheit.Unit != UnitFahrenheit || weather.Celsius.Unit != UnitCelsius {
+		t.Fatalf("cached temperature units = (%q, %q), want (%q, %q)",
+			weather.Fahrenheit.Unit,
+			weather.Celsius.Unit,
+			UnitFahrenheit,
+			UnitCelsius,
+		)
+	}
+	got := weather.Celsius
+	if math.Abs(got.Current-22.5) > 1e-9 {
+		t.Errorf("cached Celsius current = %v, want 22.5", got.Current)
+	}
+	if math.Abs(got.FeelsLike-23) > 1e-9 {
+		t.Errorf("cached Celsius feels-like = %v, want 23", got.FeelsLike)
+	}
+	if got.Max != 25 || got.Min != 20 {
+		t.Errorf("cached Celsius range = (%v, %v), want (25, 20)", got.Max, got.Min)
+	}
+}
+
 func TestWeatherCacheCityStrategy(t *testing.T) {
 	cache := NewCacheWithStrategy(CacheByCity)
 	t.Cleanup(cache.Close)
 	rome := Weather{
 		Coordinates: Coordinates{Lat: 41.9028, Lon: 12.4964},
 		City:        "Rome",
-		CurrentTemp: 20,
+		Celsius:     Temperature{Unit: UnitCelsius, Current: 20},
 	}
 	roma := Weather{
 		Coordinates: Coordinates{Lat: 41.9028, Lon: 12.4964},
 		City:        "Roma",
-		CurrentTemp: 21,
+		Celsius:     Temperature{Unit: UnitCelsius, Current: 21},
 	}
-	cache.SetWeather("Rome", rome, false)
-	cache.SetWeather("Roma", roma, false)
+	cache.SetWeather("Rome", rome)
+	cache.SetWeather("Roma", roma)
 
 	for _, tt := range []struct {
 		name     string
@@ -77,14 +140,14 @@ func TestWeatherCacheCityStrategy(t *testing.T) {
 		{name: "Roma", wantTemp: 21},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			hit, weather := cache.GetWeather(tt.name, false)
-			if !hit || weather.CurrentTemp != tt.wantTemp {
+			hit, weather := cache.GetWeather(tt.name)
+			if !hit || weather.Celsius.Current != tt.wantTemp {
 				t.Errorf("city lookup = (%v, %v), want hit with temperature %v", hit, weather, tt.wantTemp)
 			}
 		})
 	}
 
-	if hit, weather := cache.GetWeatherByCoordinates(rome.Coordinates, false); hit || weather != nil {
+	if hit, weather := cache.GetWeatherByCoordinates(rome.Coordinates); hit || weather != nil {
 		t.Errorf("coordinate lookup = (%v, %v), want a miss with city strategy", hit, weather)
 	}
 
@@ -132,7 +195,7 @@ func TestCacheStrategiesDeleteExpiredEntries(t *testing.T) {
 				},
 			}
 			for city, weather := range weatherByCity {
-				cache.SetWeather(city, weather, false)
+				cache.SetWeather(city, weather)
 			}
 
 			scanTime := time.Now()
@@ -150,13 +213,13 @@ func TestCacheStrategiesDeleteExpiredEntries(t *testing.T) {
 				t.Errorf("cache has %d entries after sweep, want 2", got)
 			}
 
-			if hit, _ := cache.GetWeather("expired", false); hit {
+			if hit, _ := cache.GetWeather("expired"); hit {
 				t.Error("expired entry was still a cache hit")
 			}
 			if !cacheContainsEntry(&cache, "boundary", weatherByCity["boundary"].Coordinates) {
 				t.Error("entry expiring exactly at scan time was deleted")
 			}
-			if hit, _ := cache.GetWeather("valid", false); !hit {
+			if hit, _ := cache.GetWeather("valid"); !hit {
 				t.Error("unexpired entry was deleted")
 			}
 
@@ -178,13 +241,13 @@ func setCacheExpiry(cache *WeatherCache, city string, coordinates Coordinates, v
 		defer strategy.Unlock()
 		key := floorCoordinates(coordinates.Lat, coordinates.Lon)
 		entry := strategy.weatherByCoord[key]
-		entry.Valid_until = validUntil
+		entry.ValidUntil = validUntil
 		strategy.weatherByCoord[key] = entry
 	case *cityCache:
 		strategy.Lock()
 		defer strategy.Unlock()
 		entry := strategy.weatherByCity[cacheKey(city)]
-		entry.Valid_until = validUntil
+		entry.ValidUntil = validUntil
 		strategy.weatherByCity[cacheKey(city)] = entry
 	}
 }

@@ -122,10 +122,10 @@ func (h *Handler) HandleWeatherAPI(w http.ResponseWriter, req *http.Request) {
 		City:        weather.City,
 		Country:     weather.Country,
 		Units:       units,
-		CurrentTemp: round2(weather.CurrentTemp),
-		FeelsLike:   round2(weather.FeelsLike),
-		MaxTemp:     round2(weather.MaxTemp),
-		MinTemp:     round2(weather.MinTemp),
+		CurrentTemp: round2(weather.TemperatureFor(cityRequest.Fahrenheit).Current),
+		FeelsLike:   round2(weather.TemperatureFor(cityRequest.Fahrenheit).FeelsLike),
+		MaxTemp:     round2(weather.TemperatureFor(cityRequest.Fahrenheit).Max),
+		MinTemp:     round2(weather.TemperatureFor(cityRequest.Fahrenheit).Min),
 		Condition:   weather.Condition,
 		Humidity:    weather.Humidity,
 		Timezone:    weather.Timezone,
@@ -150,7 +150,7 @@ func (h *Handler) HandleWeatherAPI(w http.ResponseWriter, req *http.Request) {
 // cachedWeather returns the weather for a city from the cache, fetching and
 // caching it on a miss.
 func (h *Handler) cachedWeather(cityRequest model.WeatherRequest) (*model.Weather, error) {
-	ok, weather := h.cache.GetWeather(cityRequest.City, cityRequest.Fahrenheit)
+	ok, weather := h.cache.GetWeather(cityRequest.City)
 	if ok {
 		log.Printf("Cache hit for %s", cityRequest.City)
 		return weather, nil
@@ -161,7 +161,7 @@ func (h *Handler) cachedWeather(cityRequest model.WeatherRequest) (*model.Weathe
 	if err != nil {
 		return nil, err
 	}
-	h.cache.SetWeather(cityRequest.City, *weather, cityRequest.Fahrenheit)
+	h.cache.SetWeather(cityRequest.City, *weather)
 	return weather, nil
 }
 
@@ -172,16 +172,17 @@ func round2(v float64) float64 {
 
 func writeTextWeather(w http.ResponseWriter, weather *model.Weather, fahrenheit bool) {
 	unit := "°C"
+	temperature := weather.TemperatureFor(fahrenheit)
 	if fahrenheit {
 		unit = "°F"
 	}
 
 	w.Header().Set("content-type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, "Weather for %s, %s\n", weather.City, weather.Country)
-	fmt.Fprintf(w, "Current: %.1f%s\n", weather.CurrentTemp, unit)
-	fmt.Fprintf(w, "Feels like: %.1f%s\n", weather.FeelsLike, unit)
+	fmt.Fprintf(w, "Current: %.1f%s\n", temperature.Current, unit)
+	fmt.Fprintf(w, "Feels like: %.1f%s\n", temperature.FeelsLike, unit)
 	fmt.Fprintf(w, "Condition: %s\n", weather.Condition)
-	fmt.Fprintf(w, "High: %.1f%s / Low: %.1f%s\n", weather.MaxTemp, unit, weather.MinTemp, unit)
+	fmt.Fprintf(w, "High: %.1f%s / Low: %.1f%s\n", temperature.Max, unit, temperature.Min, unit)
 	fmt.Fprintf(w, "Humidity: %.1f%%\n", weather.Humidity)
 }
 
@@ -306,7 +307,7 @@ func (h *Handler) HandleLatLon(w http.ResponseWriter, req *http.Request) {
 	}
 
 	coordinates := model.Coordinates{Lat: lat_value, Lon: lon_value}
-	hit, weather_req := h.cache.GetWeatherByCoordinates(coordinates, fahrenheit_select)
+	hit, weather_req := h.cache.GetWeatherByCoordinates(coordinates)
 	if !hit {
 		fetchedWeather, err := model.GetWeatherByLatLon(lat_lon, *h.apiContext)
 		if err != nil {
@@ -316,7 +317,7 @@ func (h *Handler) HandleLatLon(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		weather_req = fetchedWeather
-		h.cache.SetWeather(weather_req.City, *weather_req, fahrenheit_select)
+		h.cache.SetWeather(weather_req.City, *weather_req)
 	}
 
 	cityRequest := model.WeatherRequest{
