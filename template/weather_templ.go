@@ -31,7 +31,7 @@ func Weather(weather model.Weather, request model.WeatherRequest) templ.Componen
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-ref=\"we\" class=\"relative bg-gray-300 py-4 px-4 sm:px-8 shadow-xl ring-1 ring-gray-900/5 rounded-lg\"><button type=\"button\" aria-label=\"Remove city\" class=\"absolute top-1 right-1 flex items-center justify-center w-11 h-11 rounded-full text-xl leading-none text-gray-600 hover:bg-gray-400/50 hover:text-gray-900\" x-on:click=\"remove()\">&times;</button><div class=\"items-center text-center text-lg text-pretty text-blue-900 px-10\"><p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-ref=\"we\" class=\"relative bg-gray-300 pt-4 pb-14 px-4 sm:px-8 shadow-xl ring-1 ring-gray-900/5 rounded-lg\"><button type=\"button\" aria-label=\"Remove city\" class=\"absolute top-1 right-1 flex items-center justify-center w-11 h-11 rounded-full text-xl leading-none text-gray-600 hover:bg-gray-400/50 hover:text-gray-900\" x-on:click=\"remove()\">&times;</button><div class=\"items-center text-center text-lg text-pretty text-blue-900 px-10\"><p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -152,7 +152,72 @@ func Weather(weather model.Weather, request model.WeatherRequest) templ.Componen
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"><div x-data=\"{tz: {},\n\t\t\t\tinit() {\n\t\t\t\t\tconst dt = new Date();\n\t\t\t\t\tconst offset = this.timezone + (dt.getTimezoneOffset() * 60)\n\t\t\t\t\tconst dt_off = new Date(dt.getTime() + (offset) * 1000);\n\n\t\t\t\t\tthis.tz = dt_off.toLocaleTimeString();\n\n\t\t\t\t}\n\n\n\t\t\t\t}\"><div x-text=\"tz\"></div></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"><div x-data=\"{tz: {},\n\t\t\t\tinit() {\n\t\t\t\t\tconst dt = new Date();\n\t\t\t\t\tconst offset = this.timezone + (dt.getTimezoneOffset() * 60)\n\t\t\t\t\tconst dt_off = new Date(dt.getTime() + (offset) * 1000);\n\n\t\t\t\t\tthis.tz = dt_off.toLocaleTimeString();\n\n\t\t\t\t}\n\n\n\t\t\t\t}\"><div x-text=\"tz\"></div></div></div></div><button type=\"button\" class=\"absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full text-blue-700 hover:bg-blue-100 hover:text-blue-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2\" aria-label=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var9 string
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templruntime.NewAttributeExpression("View 7-day forecast for " + weather.City + ", " + weather.Country).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `template/weather.templ`, Line: 56, Col: 82}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" data-lat=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var10 string
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.FormatFloat(weather.Coordinates.Lat, 'f', -1, 64)).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `template/weather.templ`, Line: 57, Col: 71}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" data-lon=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var11 string
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.FormatFloat(weather.Coordinates.Lon, 'f', -1, 64)).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `template/weather.templ`, Line: 58, Col: 71}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" data-city=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var12 string
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templruntime.NewAttributeExpression(weather.City + ", " + weather.Country).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `template/weather.templ`, Line: 59, Col: 52}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" data-fahrenheit=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var13 string
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templruntime.NewAttributeExpression(strconv.FormatBool(request.Fahrenheit)).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `template/weather.templ`, Line: 60, Col: 59}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" x-on:click=\"$dispatch('forecast-open', {lat: Number($el.dataset.lat), lon: Number($el.dataset.lon), city: $el.dataset.city, fahrenheit: $el.dataset.fahrenheit === 'true'})\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"h-5 w-5\"><circle cx=\"12\" cy=\"12\" r=\"4\"></circle> <path d=\"M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42\"></path></svg></button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -6,7 +6,7 @@ import (
 )
 
 templ Weather(weather model.Weather, request model.WeatherRequest) {
-	<div x-ref="we" class="relative bg-gray-300 py-4 px-4 sm:px-8 shadow-xl ring-1 ring-gray-900/5 rounded-lg">
+	<div x-ref="we" class="relative bg-gray-300 pt-4 pb-14 px-4 sm:px-8 shadow-xl ring-1 ring-gray-900/5 rounded-lg">
 		<button type="button" aria-label="Remove city" class="absolute top-1 right-1 flex items-center justify-center w-11 h-11 rounded-full text-xl leading-none text-gray-600 hover:bg-gray-400/50 hover:text-gray-900" x-on:click="remove()">&times;</button>
 		<div class="items-center text-center text-lg text-pretty text-blue-900 px-10">
 			<p>{ weather.City }, {weather.Country }</p>
@@ -50,5 +50,20 @@ templ Weather(weather model.Weather, request model.WeatherRequest) {
 				</div>
 			</div>
 		</div>
+		<button
+			type="button"
+			class="absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full text-blue-700 hover:bg-blue-100 hover:text-blue-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+			aria-label={ "View 7-day forecast for " + weather.City + ", " + weather.Country }
+			data-lat={ strconv.FormatFloat(weather.Coordinates.Lat, 'f', -1, 64) }
+			data-lon={ strconv.FormatFloat(weather.Coordinates.Lon, 'f', -1, 64) }
+			data-city={ weather.City + ", " + weather.Country }
+			data-fahrenheit={ strconv.FormatBool(request.Fahrenheit) }
+			x-on:click="$dispatch('forecast-open', {lat: Number($el.dataset.lat), lon: Number($el.dataset.lon), city: $el.dataset.city, fahrenheit: $el.dataset.fahrenheit === 'true'})"
+		>
+			<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+				<circle cx="12" cy="12" r="4" />
+				<path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+			</svg>
+		</button>
 	</div>
 }

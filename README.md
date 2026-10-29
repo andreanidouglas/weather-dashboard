@@ -11,11 +11,27 @@ Use the provided `Makefile` to build all necessary components
 make
 ```
 
+## Frontend integration tests
+
+The forecast modal integration test runs the dashboard and Alpine.js in Happy DOM
+and mocks the forecast API response; it does not need an OpenWeatherMap key.
+
+```bash
+cd view
+npm ci
+npm test
+```
+
 ## Running
 
-To run the program standalone, you need to setup the `STANDALONE` and `API_KEY` environment variables.
+The API server requires the `API_KEY` environment variable and serves API routes
+only. The static frontend is served separately by the frontend container.
 
 `API_KEY` should be a valid OpenWeatherMap.org api key
+
+The per-location forecast uses OpenWeatherMap's [Daily Forecast 16 Days API](https://openweathermap.org/api/forecast16?collection=current_forecast)
+and displays the next seven full days. The API key must have access to that
+forecast product; current-weather cards continue to use the Current Weather API.
 
 ## Dependencies
 

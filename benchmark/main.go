@@ -223,7 +223,7 @@ func runStrategy(name string, strategy model.CacheStrategy, testWorkload workloa
 
 	cache := model.NewCacheWithStrategy(strategy)
 	defer cache.Close()
-	handler := router.NewHandler(false, &model.ApiContext{Key: "benchmark-only-key"}, &cache)
+	handler := router.NewHandler(&model.ApiContext{Key: "benchmark-only-key"}, &cache)
 	endpoint := newEndpoint(handler, testWorkload.kind)
 
 	start := time.Now()

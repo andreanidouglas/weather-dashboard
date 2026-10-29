@@ -56,6 +56,12 @@
         <div x-data="{
             cities: [],
             cityInput: '',
+            forecastOpen: false,
+            forecastLoading: false,
+            forecastError: '',
+            forecastDays: [],
+            forecastLocation: null,
+            forecastRequestId: 0,
 
             selected: null,
 
@@ -122,6 +128,36 @@
 
             },
 
+            async openForecast(location) {
+                const requestId = ++this.forecastRequestId;
+                this.forecastLocation = location;
+                this.forecastDays = [];
+                this.forecastError = '';
+                this.forecastLoading = true;
+                this.forecastOpen = true;
+
+                try {
+                    const params = new URLSearchParams({ lat: location.lat, lon: location.lon });
+                    if (location.fahrenheit) params.set('fahrenheit', 'yes');
+                    const response = await fetch(`/api/forecast?${params.toString()}`);
+                    if (!response.ok) throw new Error('Forecast request failed');
+                    const forecast = await response.json();
+                    if (requestId !== this.forecastRequestId) return;
+                    this.forecastDays = forecast.days || [];
+                } catch (_) {
+                    if (requestId === this.forecastRequestId) {
+                        this.forecastError = 'Unable to load the forecast right now. Please try again.';
+                    }
+                } finally {
+                    if (requestId === this.forecastRequestId) this.forecastLoading = false;
+                }
+            },
+
+            closeForecast() {
+                this.forecastOpen = false;
+                this.forecastRequestId++;
+            },
+
             init() {
                 let cities = localStorage.getItem('x_cities');
                 if (cities) {
@@ -168,6 +204,43 @@
                 <div :id="cityId(city)" class="cities_c" hx-trigger="load, every 30s, change from:(#fahrenheit)" x-bind:hx-get="cityUrl(city)" hx-include="[name='fahrenheit']"></div>
 
             </template>
+            </div>
+
+            <div
+                x-show="forecastOpen"
+                x-on:forecast-open.window="openForecast($event.detail)"
+                x-on:keydown.escape.window="closeForecast()"
+                x-on:click.self="closeForecast()"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4"
+                style="display: none;"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="forecast-title">
+                <section class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-5 shadow-2xl ring-1 ring-gray-900/10 sm:p-7">
+                    <header class="mb-5 flex items-start justify-between gap-4">
+                        <div>
+                            <h2 id="forecast-title" class="text-xl font-bold text-blue-950" x-text="forecastLocation ? forecastLocation.city : '7-day forecast'"></h2>
+                            <p class="mt-1 text-sm text-gray-600">The next seven days</p>
+                        </div>
+                        <button type="button" class="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl text-gray-600 hover:bg-gray-100 hover:text-gray-900" aria-label="Close forecast" @click="closeForecast()">&times;</button>
+                    </header>
+
+                    <p x-show="forecastLoading" class="py-8 text-center text-gray-600" role="status">Loading forecast…</p>
+                    <p x-show="forecastError" class="py-8 text-center text-red-700" role="alert" x-text="forecastError"></p>
+                    <div x-show="!forecastLoading && !forecastError" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <template x-for="day in forecastDays" :key="day.date">
+                            <article class="rounded-lg bg-gray-100 p-4 text-center ring-1 ring-gray-900/5">
+                                <h3 class="font-semibold text-blue-950" x-text="day.date"></h3>
+                                <p class="mt-2 min-h-10 text-sm capitalize text-gray-600" x-text="day.description || day.condition"></p>
+                                <p class="mt-2 text-lg font-bold text-blue-950">
+                                    <span x-text="`${Math.round(day.max_temp)}°${forecastLocation && forecastLocation.fahrenheit ? 'F' : 'C'}`"></span>
+                                    <span class="font-normal text-gray-500" x-text="`${Math.round(day.min_temp)}°${forecastLocation && forecastLocation.fahrenheit ? 'F' : 'C'}`"></span>
+                                </p>
+                                <p class="mt-2 text-xs text-gray-600" x-text="`Humidity ${day.humidity}% · Rain ${Math.round(day.precipitation * 100)}%`"></p>
+                            </article>
+                        </template>
+                    </div>
+                </section>
             </div>
 
 
