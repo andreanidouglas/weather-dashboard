@@ -24,8 +24,8 @@ var (
 	mockWeatherBody     = `{"coord":{"lat":-23.5,"lon":-46.6},"name":"São Paulo","sys":{"country":"BR"},"main":{"temp":22.5,"feels_like":23.0,"temp_min":20.0,"temp_max":25.0,"humidity":65},"weather":[{"main":"Clouds"}],"timezone":-10800}`
 	mockGeocodeBody     = `[{"name":"São Paulo","lat":-23.5,"lon":-46.6,"country":"BR","state":"São Paulo"},{"name":"Santos","lat":-23.9,"lon":-46.3,"country":"BR","state":"São Paulo"}]`
 	mockForecastBody    = `{
-		"timezone_offset": -10800,
-		"daily": [
+		"city": {"timezone": -10800},
+		"list": [
 			{"dt":1900000000,"temp":{"min":1,"max":11},"humidity":50,
 			 "pop":0.1,"weather":[{"main":"Clouds","description":"scattered clouds"}]},
 			{"dt":1900086400,"temp":{"min":2,"max":12},"humidity":51,
@@ -60,7 +60,7 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 			lastWeatherQuery = r.URL.Query()
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, mockWeatherBody)
-		case strings.HasPrefix(r.URL.Path, "/data/3.0/onecall"):
+		case strings.HasPrefix(r.URL.Path, "/data/2.5/forecast/daily"):
 			lastForecastQuery = r.URL.Query()
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, mockForecastBody)
@@ -76,7 +76,7 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 	origForecastURL := model.ForecastDataURL
 	origGeocodeURL := model.GeocodeURL
 	model.WeatherDataURL = owm.URL + "/data/2.5/weather"
-	model.ForecastDataURL = owm.URL + "/data/3.0/onecall"
+	model.ForecastDataURL = owm.URL + "/data/2.5/forecast/daily"
 	model.GeocodeURL = owm.URL + "/geo/1.0/direct"
 
 	ctx := &model.ApiContext{Key: testAPIKey}
@@ -498,6 +498,9 @@ func TestHandleForecast(t *testing.T) {
 	}
 	if got := lastForecastQuery.Get("lat"); got != "-23.5" {
 		t.Errorf("upstream latitude = %q, want -23.5", got)
+	}
+	if got := lastForecastQuery.Get("cnt"); got != "8" {
+		t.Errorf("upstream forecast count = %q, want 8", got)
 	}
 }
 

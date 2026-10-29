@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var ForecastDataURL = "https://api.openweathermap.org/data/3.0/onecall"
+var ForecastDataURL = "https://api.openweathermap.org/data/2.5/forecast/daily"
 
 const forecastHTTPTimeout = 10 * time.Second
 
@@ -40,8 +40,10 @@ type ForecastDay struct {
 }
 
 type openWeatherForecast struct {
-	TimezoneOffset int `json:"timezone_offset"`
-	Daily          []struct {
+	City struct {
+		Timezone int `json:"timezone"`
+	} `json:"city"`
+	List []struct {
 		Date int64 `json:"dt"`
 		Temp struct {
 			Min float64 `json:"min"`
@@ -53,7 +55,7 @@ type openWeatherForecast struct {
 			Main        string `json:"main"`
 			Description string `json:"description"`
 		} `json:"weather"`
-	} `json:"daily"`
+	} `json:"list"`
 }
 
 // GetForecast returns the next seven complete daily forecasts for coordinates.
@@ -79,7 +81,7 @@ func GetForecast(ctx context.Context, request ForecastRequest, apiContext *ApiCo
 	query.Set("lat", strconv.FormatFloat(request.Lat, 'f', -1, 64))
 	query.Set("lon", strconv.FormatFloat(request.Lon, 'f', -1, 64))
 	query.Set("units", units)
-	query.Set("exclude", "current,minutely,hourly,alerts")
+	query.Set("cnt", "8")
 	query.Set("appid", apiContext.Key)
 	endpoint.RawQuery = query.Encode()
 
@@ -103,13 +105,13 @@ func GetForecast(ctx context.Context, request ForecastRequest, apiContext *ApiCo
 	if err := decoder.Decode(&response); err != nil {
 		return nil, fmt.Errorf("decode forecast response: %w", err)
 	}
-	if len(response.Daily) < 8 {
+	if len(response.List) < 8 {
 		return nil, fmt.Errorf("forecast response did not include seven future days")
 	}
 
-	location := time.FixedZone("forecast", response.TimezoneOffset)
+	location := time.FixedZone("forecast", response.City.Timezone)
 	days := make([]ForecastDay, 0, 7)
-	for _, daily := range response.Daily[1:8] {
+	for _, daily := range response.List[1:8] {
 		day := ForecastDay{
 			Date:          time.Unix(daily.Date, 0).In(location).Format("Mon, Jan 2"),
 			MinTemp:       daily.Temp.Min,

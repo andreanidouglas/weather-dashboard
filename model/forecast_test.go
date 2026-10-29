@@ -38,10 +38,13 @@ func TestGetForecast(t *testing.T) {
 			Description string `json:"description"`
 		}{Main: "Clouds", Description: "scattered clouds"})
 	}
-	responseBody, err := json.Marshal(struct {
-		TimezoneOffset int             `json:"timezone_offset"`
-		Daily          []dailyForecast `json:"daily"`
-	}{TimezoneOffset: 0, Daily: days})
+	response := struct {
+		City struct {
+			Timezone int `json:"timezone"`
+		} `json:"city"`
+		List []dailyForecast `json:"list"`
+	}{List: days}
+	responseBody, err := json.Marshal(response)
 	if err != nil {
 		t.Fatalf("marshal fixture: %v", err)
 	}
@@ -74,11 +77,11 @@ func TestGetForecast(t *testing.T) {
 		t.Fatalf("parse upstream query: %v", err)
 	}
 	for key, want := range map[string]string{
-		"lat":     "41.9",
-		"lon":     "12.5",
-		"units":   "imperial",
-		"exclude": "current,minutely,hourly,alerts",
-		"appid":   "test-key",
+		"lat":   "41.9",
+		"lon":   "12.5",
+		"units": "imperial",
+		"cnt":   "8",
+		"appid": "test-key",
 	} {
 		if got := query.Get(key); got != want {
 			t.Errorf("upstream %s = %q, want %q", key, got, want)
