@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/andreanidouglas/weather-dashboard/model"
 	"github.com/andreanidouglas/weather-dashboard/router"
@@ -311,6 +312,7 @@ func TestHandleCache(t *testing.T) {
 	}
 
 	// Requesting weather should populate the cache.
+	refreshStarted := time.Now()
 	weatherResp, err := http.Get(server.URL + "/api/S%C3%A3o%20Paulo")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -335,6 +337,13 @@ func TestHandleCache(t *testing.T) {
 	}
 	if len(cache.Entries) != 1 {
 		t.Fatalf("expected 1 cache entry, got %d", len(cache.Entries))
+	}
+	refreshedAt := cache.Entries[0].LastRefreshed
+	if refreshedAt.IsZero() {
+		t.Fatal("cache entry has no last_refreshed timestamp")
+	}
+	if refreshedAt.Before(refreshStarted) || refreshedAt.After(time.Now()) {
+		t.Errorf("cache entry last_refreshed = %s, want a time during the cache refresh", refreshedAt)
 	}
 	if cache.Strategy != "coordinates" || cache.Hits != 1 || cache.Requests != 2 {
 		t.Errorf("cache status = strategy:%q hits:%d requests:%d, want coordinates/1/2",

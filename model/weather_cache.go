@@ -47,9 +47,10 @@ type cacheStats struct {
 }
 
 type weatherCacheValue struct {
-	Weather_c   Weather   `json:"weather_c"`
-	Weather_f   Weather   `json:"weather_f"`
-	Valid_until time.Time `json:"valid_until"`
+	Weather_c     Weather   `json:"weather_c"`
+	Weather_f     Weather   `json:"weather_f"`
+	LastRefreshed time.Time `json:"last_refreshed"`
+	Valid_until   time.Time `json:"valid_until"`
 }
 
 type coordinateCache struct {
@@ -291,10 +292,12 @@ func newWeatherCacheValue(weather Weather, fahrenheit bool) (weatherCacheValue, 
 		weatherF.MinTemp = weather.MinTemp*9.0/5.0 + 32
 	}
 
+	refreshedAt := time.Now()
 	return weatherCacheValue{
-		Weather_c:   weatherC,
-		Weather_f:   weatherF,
-		Valid_until: time.Now().Add(30 * time.Minute),
+		Weather_c:     weatherC,
+		Weather_f:     weatherF,
+		LastRefreshed: refreshedAt,
+		Valid_until:   refreshedAt.Add(30 * time.Minute),
 	}, weather.Coordinates
 }
 
