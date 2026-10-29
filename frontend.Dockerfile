@@ -3,6 +3,7 @@ COPY . /app/
 
 WORKDIR /app/view
 RUN npm ci
+RUN npm run build:assets
 RUN npx tailwindcss -i input.css -o src/css/style.css --minify
 RUN ls /app/
 

@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:assets": "cp node_modules/alpinejs/dist/cdn.min.js src/js/alpine.min.js"
   },
   "author": "",
   "license": "ISC",
@@ -11,6 +12,7 @@
   "devDependencies": {
     "@catppuccin/tailwindcss": "^1.0.0",
     "@tailwindcss/cli": "^4.3.3",
+    "alpinejs": "3.17.5",
     "tailwindcss": "^4.3.3"
   }
 }

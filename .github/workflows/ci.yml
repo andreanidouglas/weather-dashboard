@@ -58,12 +58,13 @@ jobs:
         working-directory: view
         run: |
           npm ci
+          npm run build:assets
           npx tailwindcss --input ./input.css --output ./src/css/style.css --minify
 
       - name: Check committed style.css is up to date
         run: |
-          git diff --exit-code -- view/src/css/style.css \
-            || { echo "::error::Rebuild view/src/css/style.css (make view) and commit it."; exit 1; }
+          git diff --exit-code -- view/src/css/style.css view/src/js/alpine.min.js \
+            || { echo "::error::Rebuild frontend assets (make view) and commit them."; exit 1; }
 
   docker:
     name: Docker (${{ matrix.image }})

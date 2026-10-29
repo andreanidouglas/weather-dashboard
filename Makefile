@@ -7,8 +7,8 @@ server: cmd/api/main.go
 	go tool templ generate -v
 	go build -o out/$@ $<
 
-view: view/input.css $(go_files)
-	cd view && npx tailwindcss --input ./input.css --output ./src/css/style.css --minify
+view: view/input.css view/package-lock.json $(go_files)
+	cd view && npm run build:assets && npx tailwindcss --input ./input.css --output ./src/css/style.css --minify
 
 clean:
 	rm out/*

@@ -27,6 +27,14 @@ Make sure you have the following dependencies installed
 4. gnu make>=4.3
 5. [optional] docker or podman
 
+## Progressive Web App
+
+The frontend includes a web app manifest and a service worker that caches the
+application shell and up to 40 recently loaded weather cards for offline use.
+Weather refreshes, city suggestions, and first-time weather lookups still need
+a network connection. For installation, serve the site on HTTPS (or `localhost`)
+and visit it once while online so the service worker can cache the app shell.
+
 
 ## Docker
 
