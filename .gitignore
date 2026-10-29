@@ -2,5 +2,6 @@ out/
 tmp/
 view/node_modules
 _templ.go
+template/*_templ.go
 caddy_data/
 .amp/portals/*

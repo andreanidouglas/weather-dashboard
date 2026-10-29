@@ -20,9 +20,9 @@ const (
 
 type cacheStrategy interface {
 	name() string
-	getWeather(city string, fahrenheit bool) (bool, *Weather)
-	getWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather)
-	setWeather(city string, weather Weather, fahrenheit bool)
+	getWeather(city string) (bool, *Weather)
+	getWeatherByCoordinates(coordinates Coordinates) (bool, *Weather)
+	setWeather(city string, weather Weather)
 	entries() []weatherCacheValue
 	deleteExpired(now time.Time)
 }
@@ -47,9 +47,8 @@ type cacheStats struct {
 }
 
 type weatherCacheValue struct {
-	Weather_c   Weather   `json:"weather_c"`
-	Weather_f   Weather   `json:"weather_f"`
-	Valid_until time.Time `json:"valid_until"`
+	Weather    Weather   `json:"weather"`
+	ValidUntil time.Time `json:"valid_until"`
 }
 
 type coordinateCache struct {
@@ -109,8 +108,8 @@ func cacheKey(city string) string {
 
 // GetWeather looks up a city. Its first return value is true on a cache hit and
 // false on a miss.
-func (w *WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather) {
-	hit, weather := w.strategy.getWeather(city, fahrenheit)
+func (w *WeatherCache) GetWeather(city string) (bool, *Weather) {
+	hit, weather := w.strategy.getWeather(city)
 	w.recordLookup(hit)
 	return hit, weather
 }
@@ -118,15 +117,15 @@ func (w *WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather)
 // GetWeatherByCoordinates looks up floored coordinates. Its first return value
 // is true on a cache hit and false on a miss. The city-key strategy always
 // returns a miss here.
-func (w *WeatherCache) GetWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather) {
-	hit, weather := w.strategy.getWeatherByCoordinates(coordinates, fahrenheit)
+func (w *WeatherCache) GetWeatherByCoordinates(coordinates Coordinates) (bool, *Weather) {
+	hit, weather := w.strategy.getWeatherByCoordinates(coordinates)
 	w.recordLookup(hit)
 	return hit, weather
 }
 
 // SetWeather stores a result using the configured cache strategy.
-func (w *WeatherCache) SetWeather(city string, weather Weather, fahrenheit bool) {
-	w.strategy.setWeather(city, weather, fahrenheit)
+func (w *WeatherCache) SetWeather(city string, weather Weather) {
+	w.strategy.setWeather(city, weather)
 }
 
 // Close stops the periodic expired-entry sweeper.
@@ -162,7 +161,7 @@ func (w *WeatherCache) recordLookup(hit bool) {
 	}
 }
 
-func (c *coordinateCache) getWeather(city string, fahrenheit bool) (bool, *Weather) {
+func (c *coordinateCache) getWeather(city string) (bool, *Weather) {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -171,20 +170,20 @@ func (c *coordinateCache) getWeather(city string, fahrenheit bool) (bool, *Weath
 		return false, nil
 	}
 	weather, ok := c.weatherByCoord[coordinates]
-	return cachedWeather(weather, ok, fahrenheit)
+	return cachedWeather(weather, ok)
 }
 
-func (c *coordinateCache) getWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather) {
+func (c *coordinateCache) getWeatherByCoordinates(coordinates Coordinates) (bool, *Weather) {
 	c.RLock()
 	defer c.RUnlock()
 
 	key := floorCoordinates(coordinates.Lat, coordinates.Lon)
 	weather, ok := c.weatherByCoord[key]
-	return cachedWeather(weather, ok, fahrenheit)
+	return cachedWeather(weather, ok)
 }
 
-func (c *coordinateCache) setWeather(city string, weather Weather, fahrenheit bool) {
-	cache, coordinates := newWeatherCacheValue(weather, fahrenheit)
+func (c *coordinateCache) setWeather(city string, weather Weather) {
+	cache, coordinates := newWeatherCacheValue(weather)
 
 	c.Lock()
 	defer c.Unlock()
@@ -211,7 +210,7 @@ func (c *coordinateCache) deleteExpired(now time.Time) {
 	defer c.Unlock()
 
 	for coordinates, entry := range c.weatherByCoord {
-		if entry.Valid_until.Before(now) {
+		if entry.ValidUntil.Before(now) {
 			delete(c.weatherByCoord, coordinates)
 		}
 	}
@@ -222,20 +221,20 @@ func (c *coordinateCache) deleteExpired(now time.Time) {
 	}
 }
 
-func (c *cityCache) getWeather(city string, fahrenheit bool) (bool, *Weather) {
+func (c *cityCache) getWeather(city string) (bool, *Weather) {
 	c.RLock()
 	defer c.RUnlock()
 
 	weather, ok := c.weatherByCity[cacheKey(city)]
-	return cachedWeather(weather, ok, fahrenheit)
+	return cachedWeather(weather, ok)
 }
 
-func (c *cityCache) getWeatherByCoordinates(_ Coordinates, _ bool) (bool, *Weather) {
+func (c *cityCache) getWeatherByCoordinates(_ Coordinates) (bool, *Weather) {
 	return false, nil
 }
 
-func (c *cityCache) setWeather(city string, weather Weather, fahrenheit bool) {
-	cache, _ := newWeatherCacheValue(weather, fahrenheit)
+func (c *cityCache) setWeather(city string, weather Weather) {
+	cache, _ := newWeatherCacheValue(weather)
 
 	c.Lock()
 	defer c.Unlock()
@@ -258,43 +257,44 @@ func (c *cityCache) deleteExpired(now time.Time) {
 	defer c.Unlock()
 
 	for city, entry := range c.weatherByCity {
-		if entry.Valid_until.Before(now) {
+		if entry.ValidUntil.Before(now) {
 			delete(c.weatherByCity, city)
 		}
 	}
 }
 
-func cachedWeather(cache weatherCacheValue, exists bool, fahrenheit bool) (bool, *Weather) {
-	if !exists || time.Now().After(cache.Valid_until) {
+func cachedWeather(cache weatherCacheValue, exists bool) (bool, *Weather) {
+	if !exists || time.Now().After(cache.ValidUntil) {
 		return false, nil
 	}
-	if fahrenheit {
-		return true, &cache.Weather_f
-	}
-	return true, &cache.Weather_c
+	return true, &cache.Weather
 }
 
-func newWeatherCacheValue(weather Weather, fahrenheit bool) (weatherCacheValue, Coordinates) {
-	weather.Coordinates = floorCoordinates(weather.Lat, weather.Lon)
-	weatherC := weather
-	weatherF := weather
+func newWeatherCacheValue(weather Weather) (weatherCacheValue, Coordinates) {
+	weather.Coordinates = floorCoordinates(weather.Coordinates.Lat, weather.Coordinates.Lon)
 
-	if fahrenheit {
-		weatherC.CurrentTemp = 5.0 / 9.0 * (weather.CurrentTemp - 32.0)
-		weatherC.FeelsLike = 5.0 / 9.0 * (weather.FeelsLike - 32.0)
-		weatherC.MaxTemp = 5.0 / 9.0 * (weather.MaxTemp - 32.0)
-		weatherC.MinTemp = 5.0 / 9.0 * (weather.MinTemp - 32.0)
-	} else {
-		weatherF.CurrentTemp = weather.CurrentTemp*9.0/5.0 + 32
-		weatherF.FeelsLike = weather.FeelsLike*9.0/5.0 + 32
-		weatherF.MaxTemp = weather.MaxTemp*9.0/5.0 + 32
-		weatherF.MinTemp = weather.MinTemp*9.0/5.0 + 32
+	var weatherC, weatherF Temperature
+	switch {
+	case weather.Celsius.Unit == UnitCelsius && weather.Fahrenheit.Unit == UnitFahrenheit:
+		weatherC = weather.Celsius
+		weatherF = weather.Fahrenheit
+	case weather.Celsius.Unit == UnitCelsius:
+		weatherC = weather.Celsius
+		weatherF = weatherC.ConvertTo(UnitFahrenheit)
+	case weather.Fahrenheit.Unit == UnitFahrenheit:
+		weatherF = weather.Fahrenheit
+		weatherC = weatherF.ConvertTo(UnitCelsius)
+	default:
+		weatherC = weather.Celsius
+		weatherC.Unit = UnitCelsius
+		weatherF = weatherC.ConvertTo(UnitFahrenheit)
 	}
+	weather.Celsius = weatherC
+	weather.Fahrenheit = weatherF
 
 	return weatherCacheValue{
-		Weather_c:   weatherC,
-		Weather_f:   weatherF,
-		Valid_until: time.Now().Add(30 * time.Minute),
+		Weather:    weather,
+		ValidUntil: time.Now().Add(30 * time.Minute),
 	}, weather.Coordinates
 }
 

@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-GO_VERSION="1.27.2"    # satisfies `go 1.26.0` in go.mod
+GO_VERSION="1.27.3"    # matches the go version in go.mod
 AIR_VERSION="v1.67.4"
 
 step() {

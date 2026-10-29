@@ -1,9 +1,8 @@
-FROM golang:1.27-trixie AS build
-RUN go install github.com/a-h/templ/cmd/templ@v0.3.1070
+FROM golang:1.27.3-trixie AS build
 WORKDIR /app
 ENV CGO_ENABLED=0
 COPY . .
-RUN templ generate -v
+RUN go tool templ generate -v
 RUN go build -o server cmd/api/main.go
 
 FROM debian:trixie-slim

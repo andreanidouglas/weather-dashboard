@@ -11,6 +11,14 @@
 
     </head>
     <body class="bg-gray-100 px-4 py-6 sm:px-6 sm:py-8 xl:px-12">
+        <header class="mx-auto mb-6 flex max-w-6xl flex-wrap items-center justify-between gap-4 border-b border-gray-200 pb-4">
+            <a href="./index.html" class="text-2xl font-bold text-gray-900 hover:text-blue-700">Weather Dashboard</a>
+            <nav aria-label="Main navigation" class="flex items-center gap-4 text-sm font-medium">
+                <a href="./index.html" class="text-blue-700 hover:text-blue-900">Home</a>
+                <a href="./about.html" class="text-gray-600 hover:text-blue-700">About</a>
+                <a href="https://github.com/andreanidouglas/weather-dashboard" target="_blank" rel="noopener noreferrer" class="text-gray-600 hover:text-blue-700">Source</a>
+            </nav>
+        </header>
         <div x-data="{f: {},
            setState(ev) {
                 this.f = !this.f;
@@ -119,6 +127,8 @@
             },
 
         }">
+
+            <h1 class="sr-only">Weather Dashboard</h1>
 
             <div class="flex gap-2 my-4">
             <input

@@ -21,9 +21,9 @@ To run the program standalone, you need to setup the `STANDALONE` and `API_KEY` 
 
 Make sure you have the following dependencies installed
 
-1. golang>=1.26
+1. Go 1.27.3 or newer
 2. node>=22
-3. templ>=0.3.1070
+3. templ v0.3.1100 (managed by `go tool`)
 4. gnu make>=4.3
 5. [optional] docker or podman
 
@@ -40,4 +40,3 @@ You can use docker to deploy, using the provided `dockerfile` and `compose.yml`
 make docker-build
 docker compose up -d
 ```
-
