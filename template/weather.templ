@@ -33,6 +33,17 @@ templ Weather(weather model.Weather, request model.WeatherRequest) {
 			<div class="text-gray-600 text-center">
 				Humidity: { strconv.FormatFloat(weather.Humidity, 'f', 1, 32) }%
 			</div>
+			<div class="flex justify-center pt-4">
+				<button
+					type="button"
+					class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+					data-lat={ strconv.FormatFloat(weather.Coordinates.Lat, 'f', -1, 64) }
+					data-lon={ strconv.FormatFloat(weather.Coordinates.Lon, 'f', -1, 64) }
+					data-city={ weather.City + ", " + weather.Country }
+					data-fahrenheit={ strconv.FormatBool(request.Fahrenheit) }
+					x-on:click="$dispatch('forecast-open', {lat: Number($el.dataset.lat), lon: Number($el.dataset.lon), city: $el.dataset.city, fahrenheit: $el.dataset.fahrenheit === 'true'})"
+				>7-day forecast</button>
+			</div>
 			<div class="text-gray-600 text-center" x-data={ templ.JSONString(weather) }>
 				<div x-data="{tz: {},
 				init() {

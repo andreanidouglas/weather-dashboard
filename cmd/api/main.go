@@ -17,17 +17,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Mode standalone: %v", cfg.Standalone)
-
 	cache := model.NewCache()
 	defer cache.Close()
-	h := router.NewHandler(cfg.Standalone, &model.ApiContext{Key: cfg.APIKey}, &cache)
+	h := router.NewHandler(&model.ApiContext{Key: cfg.APIKey}, &cache)
 
 	s := &http.Server{
 		Addr:           config.Addr,
 		Handler:        middleware.LogRecover(h.Routes()),
 		ReadTimeout:    300 * time.Millisecond, // TODO: find better values for these
-		WriteTimeout:   900 * time.Millisecond,
+		WriteTimeout:   12 * time.Second,
 		MaxHeaderBytes: 10 << 10,
 		ErrorLog:       log.Default(),
 	}

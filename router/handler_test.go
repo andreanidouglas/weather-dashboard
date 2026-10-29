@@ -19,15 +19,38 @@ const testAPIKey = "test-api-key"
 
 var (
 	lastWeatherQuery    url.Values
+	lastForecastQuery   url.Values
 	weatherRequestCount int
 	mockWeatherBody     = `{"coord":{"lat":-23.5,"lon":-46.6},"name":"São Paulo","sys":{"country":"BR"},"main":{"temp":22.5,"feels_like":23.0,"temp_min":20.0,"temp_max":25.0,"humidity":65},"weather":[{"main":"Clouds"}],"timezone":-10800}`
 	mockGeocodeBody     = `[{"name":"São Paulo","lat":-23.5,"lon":-46.6,"country":"BR","state":"São Paulo"},{"name":"Santos","lat":-23.9,"lon":-46.3,"country":"BR","state":"São Paulo"}]`
+	mockForecastBody    = `{
+		"timezone_offset": -10800,
+		"daily": [
+			{"dt":1900000000,"temp":{"min":1,"max":11},"humidity":50,
+			 "pop":0.1,"weather":[{"main":"Clouds","description":"scattered clouds"}]},
+			{"dt":1900086400,"temp":{"min":2,"max":12},"humidity":51,
+			 "pop":0.2,"weather":[{"main":"Rain","description":"light rain"}]},
+			{"dt":1900172800,"temp":{"min":3,"max":13},"humidity":52,
+			 "pop":0.3,"weather":[{"main":"Clear","description":"clear sky"}]},
+			{"dt":1900259200,"temp":{"min":4,"max":14},"humidity":53,
+			 "pop":0.4,"weather":[{"main":"Clouds","description":"broken clouds"}]},
+			{"dt":1900345600,"temp":{"min":5,"max":15},"humidity":54,
+			 "pop":0.5,"weather":[{"main":"Clear","description":"clear sky"}]},
+			{"dt":1900432000,"temp":{"min":6,"max":16},"humidity":55,
+			 "pop":0.6,"weather":[{"main":"Rain","description":"moderate rain"}]},
+			{"dt":1900518400,"temp":{"min":7,"max":17},"humidity":56,
+			 "pop":0.7,"weather":[{"main":"Clouds","description":"overcast clouds"}]},
+			{"dt":1900604800,"temp":{"min":8,"max":18},"humidity":57,
+			 "pop":0.8,"weather":[{"main":"Clear","description":"clear sky"}]}
+		]
+	}`
 )
 
 // setup creates a fake OpenWeatherMap server and a router handler pointing at it.
 func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 	t.Helper()
 	weatherRequestCount = 0
+	lastForecastQuery = nil
 
 	owm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -37,6 +60,10 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 			lastWeatherQuery = r.URL.Query()
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, mockWeatherBody)
+		case strings.HasPrefix(r.URL.Path, "/data/3.0/onecall"):
+			lastForecastQuery = r.URL.Query()
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, mockForecastBody)
 		case strings.HasPrefix(r.URL.Path, "/geo/1.0/direct"):
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, mockGeocodeBody)
@@ -46,18 +73,21 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 	}))
 
 	origWeatherURL := model.WeatherDataURL
+	origForecastURL := model.ForecastDataURL
 	origGeocodeURL := model.GeocodeURL
 	model.WeatherDataURL = owm.URL + "/data/2.5/weather"
+	model.ForecastDataURL = owm.URL + "/data/3.0/onecall"
 	model.GeocodeURL = owm.URL + "/geo/1.0/direct"
 
 	ctx := &model.ApiContext{Key: testAPIKey}
 	cache := model.NewCache()
-	h := router.NewHandler(false, ctx, &cache)
+	h := router.NewHandler(ctx, &cache)
 
 	cleanup := func() {
 		owm.Close()
 		cache.Close()
 		model.WeatherDataURL = origWeatherURL
+		model.ForecastDataURL = origForecastURL
 		model.GeocodeURL = origGeocodeURL
 	}
 
@@ -83,6 +113,19 @@ func TestHealth(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestRoutesDoNotServeFrontend(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	w := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	h.Routes().ServeHTTP(w, request)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("root response status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }
 
@@ -422,6 +465,62 @@ func TestHandleLatLonFahrenheit(t *testing.T) {
 	}
 	if lastWeatherQuery.Get("lat") != "41.890000" || lastWeatherQuery.Get("lon") != "12.480000" {
 		t.Errorf("expected lat/lon forwarded, got %v", lastWeatherQuery)
+	}
+}
+
+func TestHandleForecast(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+
+	resp, body := getBody(t, server.URL+"/api/forecast?lat=-23.5&lon=-46.6&fahrenheit=yes")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", resp.StatusCode, body)
+	}
+	if resp.Header.Get("Content-Type") != "application/json" {
+		t.Fatalf("content type = %q, want application/json", resp.Header.Get("Content-Type"))
+	}
+
+	var forecast model.Forecast
+	if err := json.Unmarshal([]byte(body), &forecast); err != nil {
+		t.Fatalf("decode forecast: %v", err)
+	}
+	if len(forecast.Days) != 7 {
+		t.Fatalf("forecast days = %d, want 7", len(forecast.Days))
+	}
+	if forecast.Days[0].MinTemp != 2 || forecast.Days[0].MaxTemp != 12 || forecast.Days[0].Condition != "Rain" {
+		t.Errorf("unexpected first forecast day: %+v", forecast.Days[0])
+	}
+	if got := lastForecastQuery.Get("units"); got != "imperial" {
+		t.Errorf("upstream units = %q, want imperial", got)
+	}
+	if got := lastForecastQuery.Get("lat"); got != "-23.5" {
+		t.Errorf("upstream latitude = %q, want -23.5", got)
+	}
+}
+
+func TestHandleForecastRejectsInvalidCoordinates(t *testing.T) {
+	h, _, cleanup := setup(t)
+	defer cleanup()
+
+	server := httptest.NewServer(newTestRouter(h))
+	defer server.Close()
+
+	for _, path := range []string{
+		"/api/forecast",
+		"/api/forecast?lat=91&lon=0",
+		"/api/forecast?lat=0&lon=181",
+		"/api/forecast?lat=NaN&lon=0",
+	} {
+		resp, body := getBody(t, server.URL+path)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400: %s", path, resp.StatusCode, body)
+		}
+	}
+	if lastForecastQuery != nil {
+		t.Errorf("invalid coordinates unexpectedly reached upstream API: %v", lastForecastQuery)
 	}
 }
 

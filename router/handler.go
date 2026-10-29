@@ -15,14 +15,12 @@ import (
 )
 
 type Handler struct {
-	Standalone bool
 	apiContext *model.ApiContext
 	cache      *model.WeatherCache
 }
 
-func NewHandler(standalone bool, apiCtx *model.ApiContext, cache *model.WeatherCache) *Handler {
+func NewHandler(apiCtx *model.ApiContext, cache *model.WeatherCache) *Handler {
 	return &Handler{
-		Standalone: standalone,
 		apiContext: apiCtx,
 		cache:      cache,
 	}
@@ -145,6 +143,42 @@ func (h *Handler) HandleWeatherAPI(w http.ResponseWriter, req *http.Request) {
 	enc.Indent("", "  ")
 	enc.Encode(res)
 	fmt.Fprintln(w)
+}
+
+// HandleForecast serves a seven-day forecast for a location's coordinates.
+func (h *Handler) HandleForecast(w http.ResponseWriter, req *http.Request) {
+	lat, latErr := strconv.ParseFloat(req.URL.Query().Get("lat"), 64)
+	lon, lonErr := strconv.ParseFloat(req.URL.Query().Get("lon"), 64)
+	if latErr != nil || lonErr != nil {
+		http.Error(w, "Invalid coordinates", http.StatusBadRequest)
+		return
+	}
+	if math.IsNaN(lat) || math.IsInf(lat, 0) || lat < -90 || lat > 90 ||
+		math.IsNaN(lon) || math.IsInf(lon, 0) || lon < -180 || lon > 180 {
+		http.Error(w, "Invalid coordinates", http.StatusBadRequest)
+		return
+	}
+
+	forecast, err := model.GetForecast(
+		req.Context(),
+		model.ForecastRequest{
+			Lat:        lat,
+			Lon:        lon,
+			Fahrenheit: req.URL.Query().Get("fahrenheit") == "yes",
+		},
+		h.apiContext,
+	)
+	if err != nil {
+		// The underlying transport error may include the API key in its URL.
+		log.Printf("forecast request failed")
+		http.Error(w, "Could not get forecast", http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("content-type", "application/json")
+	if err := json.NewEncoder(w).Encode(forecast); err != nil {
+		log.Printf("could not encode forecast response: %v", err)
+	}
 }
 
 // cachedWeather returns the weather for a city from the cache, fetching and

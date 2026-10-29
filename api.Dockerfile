@@ -17,5 +17,4 @@ RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/server /app/server
 EXPOSE 8080
-ENV STANDALONE=false
 ENTRYPOINT [ "/app/server" ]
