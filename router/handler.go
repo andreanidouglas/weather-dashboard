@@ -305,12 +305,18 @@ func (h *Handler) HandleLatLon(w http.ResponseWriter, req *http.Request) {
 		Fahrenheit: fahrenheit_select,
 	}
 
-	weather_req, err := model.GetWeatherByLatLon(lat_lon, *h.apiContext)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		err_message := fmt.Sprintf("{\"error\": \"cannot get value for lat: %f / lon: %f: %v\"}", lat_value, lon_value, err)
-		w.Write([]byte(err_message))
-		return
+	coordinates := model.Coordinates{Lat: lat_value, Lon: lon_value}
+	hit, weather_req := h.cache.GetWeatherByCoordinates(coordinates, fahrenheit_select)
+	if !hit {
+		fetchedWeather, err := model.GetWeatherByLatLon(lat_lon, *h.apiContext)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			err_message := fmt.Sprintf("{\"error\": \"cannot get value for lat: %f / lon: %f: %v\"}", lat_value, lon_value, err)
+			w.Write([]byte(err_message))
+			return
+		}
+		weather_req = fetchedWeather
+		h.cache.SetWeather(weather_req.City, *weather_req, fahrenheit_select)
 	}
 
 	cityRequest := model.WeatherRequest{
@@ -319,8 +325,7 @@ func (h *Handler) HandleLatLon(w http.ResponseWriter, req *http.Request) {
 	}
 
 	component := template.Weather(*weather_req, cityRequest)
-	err = component.Render(req.Context(), w)
-	if err != nil {
+	if err := component.Render(req.Context(), w); err != nil {
 		w.WriteHeader(500)
 		log.Printf("Error rendering template %v", err)
 		return

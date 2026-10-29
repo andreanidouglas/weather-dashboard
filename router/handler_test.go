@@ -18,19 +18,22 @@ import (
 const testAPIKey = "test-api-key"
 
 var (
-	lastWeatherQuery url.Values
-	mockWeatherBody  = `{"name":"São Paulo","sys":{"country":"BR"},"main":{"temp":22.5,"feels_like":23.0,"temp_min":20.0,"temp_max":25.0,"humidity":65},"weather":[{"main":"Clouds"}],"timezone":-10800}`
-	mockGeocodeBody  = `[{"name":"São Paulo","lat":-23.5,"lon":-46.6,"country":"BR","state":"São Paulo"},{"name":"Santos","lat":-23.9,"lon":-46.3,"country":"BR","state":"São Paulo"}]`
+	lastWeatherQuery    url.Values
+	weatherRequestCount int
+	mockWeatherBody     = `{"coord":{"lat":-23.5,"lon":-46.6},"name":"São Paulo","sys":{"country":"BR"},"main":{"temp":22.5,"feels_like":23.0,"temp_min":20.0,"temp_max":25.0,"humidity":65},"weather":[{"main":"Clouds"}],"timezone":-10800}`
+	mockGeocodeBody     = `[{"name":"São Paulo","lat":-23.5,"lon":-46.6,"country":"BR","state":"São Paulo"},{"name":"Santos","lat":-23.9,"lon":-46.3,"country":"BR","state":"São Paulo"}]`
 )
 
 // setup creates a fake OpenWeatherMap server and a router handler pointing at it.
 func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 	t.Helper()
+	weatherRequestCount = 0
 
 	owm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/data/2.5/weather"):
+			weatherRequestCount++
 			lastWeatherQuery = r.URL.Query()
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, mockWeatherBody)
@@ -346,6 +349,20 @@ func TestHandleLatLon(t *testing.T) {
 	if !strings.Contains(string(body), "22.5") {
 		t.Errorf("expected response to contain temperature, got: %s", string(body))
 	}
+
+	if got := weatherRequestCount; got != 1 {
+		t.Fatalf("weather API requests = %d, want 1", got)
+	}
+
+	// These coordinates floor to the same hundredths as the first request.
+	secondResp, err := http.Get(server.URL + "/api/pos?lat=-23.499&lon=-46.599")
+	if err != nil {
+		t.Fatalf("unexpected error on equivalent coordinate request: %v", err)
+	}
+	secondResp.Body.Close()
+	if got := weatherRequestCount; got != 1 {
+		t.Errorf("weather API requests after equivalent coordinate lookup = %d, want cache hit (1 request)", got)
+	}
 }
 
 func TestHandleLatLonMissingParam(t *testing.T) {
@@ -461,9 +478,9 @@ func TestHandleWeatherAPIBadRequests(t *testing.T) {
 	}
 }
 
-// The cache must be keyed by the requested city, not the name the API returns:
-// "Rome,IT" and "Rome" both come back as "Rome" but are different requests.
-func TestCacheKeyedByRequestedCity(t *testing.T) {
+// Different locations with the same returned city name must remain distinct
+// when the API reports different coordinates.
+func TestCacheSeparatesLocationsWithSameCityName(t *testing.T) {
 	routes := map[string]func(city string) string{
 		"html":    func(c string) string { return "/api/" + url.PathEscape(c) },
 		"text":    func(c string) string { return "/api/text/" + url.PathEscape(c) },
@@ -479,13 +496,13 @@ func TestCacheKeyedByRequestedCity(t *testing.T) {
 			server := httptest.NewServer(newTestRouter(h))
 			defer server.Close()
 
-			mockWeatherBody = `{"name":"Rome","sys":{"country":"IT"},"main":{"temp":20},"weather":[{"main":"Clear"}]}`
+			mockWeatherBody = `{"coord":{"lat":41.9,"lon":12.5},"name":"Rome","sys":{"country":"IT"},"main":{"temp":20},"weather":[{"main":"Clear"}]}`
 			if _, body := getBody(t, server.URL+path("Rome,IT")); !strings.Contains(body, "IT") {
 				t.Fatalf("expected Rome, IT, got: %s", body)
 			}
 
 			lastWeatherQuery = nil
-			mockWeatherBody = `{"name":"Rome","sys":{"country":"US"},"main":{"temp":10},"weather":[{"main":"Rain"}]}`
+			mockWeatherBody = `{"coord":{"lat":40.7,"lon":-74.0},"name":"Rome","sys":{"country":"US"},"main":{"temp":10},"weather":[{"main":"Rain"}]}`
 			_, body := getBody(t, server.URL+path("Rome"))
 			if got := lastWeatherQuery.Get("q"); got != "Rome" {
 				t.Errorf("expected upstream request for %q, got %q (served from cache?)", "Rome", got)

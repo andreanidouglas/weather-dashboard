@@ -4,13 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 )
 
 var WeatherDataURL = "https://api.openweathermap.org/data/2.5/weather"
 
+type Coordinates struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+
+func floorCoordinates(lat, lon float64) Coordinates {
+	return Coordinates{
+		Lat: math.Floor(lat*100) / 100,
+		Lon: math.Floor(lon*100) / 100,
+	}
+}
+
 type Weather struct {
+	Coordinates
 	City        string  `json:"city"`
 	Country     string  `json:"country"`
 	CurrentTemp float64 `json:"current_temp"`
@@ -65,6 +79,7 @@ func GetWeather(req WeatherRequest, apiContext *ApiContext) (*Weather, error) {
 	decoder.Decode(weather)
 
 	resWeather := Weather{
+		Coordinates: floorCoordinates(weather.Coord.Lat, weather.Coord.Lon),
 		City:        weather.Name,
 		Country:     weather.Sys.Country, // TODO: find the country from the API
 		CurrentTemp: weather.Main.Temp,
@@ -106,6 +121,7 @@ func GetWeatherByLatLon(req LatLon, apiContext ApiContext) (*Weather, error) {
 	decoder.Decode(weather)
 
 	resWeather := Weather{
+		Coordinates: floorCoordinates(weather.Coord.Lat, weather.Coord.Lon),
 		City:        weather.Name,
 		Country:     weather.Sys.Country, // TODO: find the country from the API
 		CurrentTemp: weather.Main.Temp,

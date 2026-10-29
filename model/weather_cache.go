@@ -6,10 +6,26 @@ import (
 	"time"
 )
 
-// Naive cache for Weather Requests
+// CacheStrategy controls how weather entries are keyed.
+type CacheStrategy uint8
+
+const (
+	// CacheByCoordinates keys weather entries by floored coordinates.
+	CacheByCoordinates CacheStrategy = iota
+	// CacheByCity preserves the legacy normalized-city key strategy.
+	CacheByCity
+)
+
+type cacheStrategy interface {
+	getWeather(city string, fahrenheit bool) (bool, *Weather)
+	getWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather)
+	setWeather(city string, weather Weather, fahrenheit bool)
+	entries() []weatherCacheValue
+}
+
+// WeatherCache provides a common API for the available cache strategies.
 type WeatherCache struct {
-	sync.RWMutex
-	Weather map[string]weatherCacheValue `json:"weather"`
+	strategy cacheStrategy
 }
 
 type weatherCacheValue struct {
@@ -18,79 +34,170 @@ type weatherCacheValue struct {
 	Valid_until time.Time `json:"valid_until"`
 }
 
-func NewCache() WeatherCache {
-	m := make(map[string]weatherCacheValue)
+type coordinateCache struct {
+	sync.RWMutex
+	weatherByCoord  map[Coordinates]weatherCacheValue
+	cityCoordinates map[string]Coordinates
+}
 
-	return WeatherCache{
-		Weather: m,
+type cityCache struct {
+	sync.RWMutex
+	weatherByCity map[string]weatherCacheValue
+}
+
+// NewCache creates a cache using coordinate keys by default.
+func NewCache() WeatherCache {
+	return NewCacheWithStrategy(CacheByCoordinates)
+}
+
+// NewCacheWithStrategy creates a cache using the requested key strategy.
+// Unknown strategies default to coordinate keys.
+func NewCacheWithStrategy(strategy CacheStrategy) WeatherCache {
+	switch strategy {
+	case CacheByCity:
+		return WeatherCache{
+			strategy: &cityCache{weatherByCity: map[string]weatherCacheValue{}},
+		}
+	default:
+		return WeatherCache{
+			strategy: &coordinateCache{
+				weatherByCoord:  map[Coordinates]weatherCacheValue{},
+				cityCoordinates: map[string]Coordinates{},
+			},
+		}
 	}
 }
 
 // cacheKey normalizes the requested city so " Rome " and "rome" share an entry.
-// Entries are keyed by the request, not the city name the API returns, since
-// different requests (eg "Rome,IT" and "Rome,US") can return the same name.
 func cacheKey(city string) string {
 	return strings.ToLower(strings.TrimSpace(city))
 }
 
-// Check the cache if already contain the city requested
+// GetWeather looks up a city. Its first return value is true on a cache hit and
+// false on a miss.
 func (w *WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather) {
-	w.RLock()
-	defer w.RUnlock()
-	weatherCache := w.Weather[cacheKey(city)]
-	if weatherCache.Weather_c.City == "" {
-		return false, nil
-	}
-
-	if time.Now().Compare(weatherCache.Valid_until) > 0 {
-		return false, nil
-	}
-
-	if fahrenheit {
-		return true, &weatherCache.Weather_f
-
-	}
-
-	return true, &weatherCache.Weather_c
-
+	return w.strategy.getWeather(city, fahrenheit)
 }
 
-// Create a new entry on the cache for the requested city
+// GetWeatherByCoordinates looks up floored coordinates. Its first return value
+// is true on a cache hit and false on a miss. The city-key strategy always
+// returns a miss here.
+func (w *WeatherCache) GetWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather) {
+	return w.strategy.getWeatherByCoordinates(coordinates, fahrenheit)
+}
+
+// SetWeather stores a result using the configured cache strategy.
 func (w *WeatherCache) SetWeather(city string, weather Weather, fahrenheit bool) {
-	weather_c := weather
-	weather_f := weather
+	w.strategy.setWeather(city, weather, fahrenheit)
+}
+
+func (c *coordinateCache) getWeather(city string, fahrenheit bool) (bool, *Weather) {
+	c.RLock()
+	defer c.RUnlock()
+
+	coordinates, ok := c.cityCoordinates[cacheKey(city)]
+	if !ok {
+		return false, nil
+	}
+	weather, ok := c.weatherByCoord[coordinates]
+	return cachedWeather(weather, ok, fahrenheit)
+}
+
+func (c *coordinateCache) getWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather) {
+	c.RLock()
+	defer c.RUnlock()
+
+	key := floorCoordinates(coordinates.Lat, coordinates.Lon)
+	weather, ok := c.weatherByCoord[key]
+	return cachedWeather(weather, ok, fahrenheit)
+}
+
+func (c *coordinateCache) setWeather(city string, weather Weather, fahrenheit bool) {
+	cache, coordinates := newWeatherCacheValue(weather, fahrenheit)
+
+	c.Lock()
+	defer c.Unlock()
+
+	c.weatherByCoord[coordinates] = cache
+	if key := cacheKey(city); key != "" {
+		c.cityCoordinates[key] = coordinates
+	}
+}
+
+func (c *coordinateCache) entries() []weatherCacheValue {
+	c.RLock()
+	defer c.RUnlock()
+
+	entries := make([]weatherCacheValue, 0, len(c.weatherByCoord))
+	for _, value := range c.weatherByCoord {
+		entries = append(entries, value)
+	}
+	return entries
+}
+
+func (c *cityCache) getWeather(city string, fahrenheit bool) (bool, *Weather) {
+	c.RLock()
+	defer c.RUnlock()
+
+	weather, ok := c.weatherByCity[cacheKey(city)]
+	return cachedWeather(weather, ok, fahrenheit)
+}
+
+func (c *cityCache) getWeatherByCoordinates(_ Coordinates, _ bool) (bool, *Weather) {
+	return false, nil
+}
+
+func (c *cityCache) setWeather(city string, weather Weather, fahrenheit bool) {
+	cache, _ := newWeatherCacheValue(weather, fahrenheit)
+
+	c.Lock()
+	defer c.Unlock()
+	c.weatherByCity[cacheKey(city)] = cache
+}
+
+func (c *cityCache) entries() []weatherCacheValue {
+	c.RLock()
+	defer c.RUnlock()
+
+	entries := make([]weatherCacheValue, 0, len(c.weatherByCity))
+	for _, value := range c.weatherByCity {
+		entries = append(entries, value)
+	}
+	return entries
+}
+
+func cachedWeather(cache weatherCacheValue, exists bool, fahrenheit bool) (bool, *Weather) {
+	if !exists || time.Now().After(cache.Valid_until) {
+		return false, nil
+	}
+	if fahrenheit {
+		return true, &cache.Weather_f
+	}
+	return true, &cache.Weather_c
+}
+
+func newWeatherCacheValue(weather Weather, fahrenheit bool) (weatherCacheValue, Coordinates) {
+	weather.Coordinates = floorCoordinates(weather.Lat, weather.Lon)
+	weatherC := weather
+	weatherF := weather
 
 	if fahrenheit {
-		current_temp_c := 5.0 / 9.0 * (weather.CurrentTemp - 32.0)
-		feels_like_c := 5.0 / 9.0 * (weather.FeelsLike - 32.0)
-		max_temp_c := 5.0 / 9.0 * (weather.MaxTemp - 32.0)
-		min_temp_c := 5.0 / 9.0 * (weather.MinTemp - 32.0)
-
-		weather_c.CurrentTemp = current_temp_c
-		weather_c.FeelsLike = feels_like_c
-		weather_c.MaxTemp = max_temp_c
-		weather_c.MinTemp = min_temp_c
+		weatherC.CurrentTemp = 5.0 / 9.0 * (weather.CurrentTemp - 32.0)
+		weatherC.FeelsLike = 5.0 / 9.0 * (weather.FeelsLike - 32.0)
+		weatherC.MaxTemp = 5.0 / 9.0 * (weather.MaxTemp - 32.0)
+		weatherC.MinTemp = 5.0 / 9.0 * (weather.MinTemp - 32.0)
 	} else {
-		current_temp_f := weather.CurrentTemp*9.0/5.0 + 32
-		feels_like_f := weather.FeelsLike*9.0/5.0 + 32
-		max_temp_f := weather.MaxTemp*9.0/5.0 + 32
-		min_temp_f := weather.MinTemp*9.0/5.0 + 32
-
-		weather_f.CurrentTemp = current_temp_f
-		weather_f.FeelsLike = feels_like_f
-		weather_f.MaxTemp = max_temp_f
-		weather_f.MinTemp = min_temp_f
+		weatherF.CurrentTemp = weather.CurrentTemp*9.0/5.0 + 32
+		weatherF.FeelsLike = weather.FeelsLike*9.0/5.0 + 32
+		weatherF.MaxTemp = weather.MaxTemp*9.0/5.0 + 32
+		weatherF.MinTemp = weather.MinTemp*9.0/5.0 + 32
 	}
 
-	cache := weatherCacheValue{
-		Weather_c:   weather_c,
-		Weather_f:   weather_f,
-		Valid_until: time.Now().Add(time.Duration(time.Minute * 30)),
-	}
-
-	w.Lock()
-	defer w.Unlock()
-	w.Weather[cacheKey(city)] = cache
+	return weatherCacheValue{
+		Weather_c:   weatherC,
+		Weather_f:   weatherF,
+		Valid_until: time.Now().Add(30 * time.Minute),
+	}, weather.Coordinates
 }
 
 type Cache struct {
@@ -98,15 +205,5 @@ type Cache struct {
 }
 
 func GetCache(cache *WeatherCache) (Cache, error) {
-	retCache := Cache{}
-
-	retCache.Entries = make([]weatherCacheValue, 0)
-
-	cache.RLock()
-	defer cache.RUnlock()
-	for _, value := range cache.Weather {
-		retCache.Entries = append(retCache.Entries, value)
-	}
-
-	return retCache, nil
+	return Cache{Entries: cache.strategy.entries()}, nil
 }
