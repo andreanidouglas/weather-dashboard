@@ -41,6 +41,12 @@ func TestWeatherCacheCoordinateStrategy(t *testing.T) {
 	if got := len(entries.Entries); got != 1 {
 		t.Errorf("coordinate cache has %d entries, want 1", got)
 	}
+	if entries.Strategy != "coordinates" {
+		t.Errorf("coordinate cache strategy = %q, want %q", entries.Strategy, "coordinates")
+	}
+	if entries.Hits != 2 || entries.Requests != 4 {
+		t.Errorf("coordinate cache stats = hits:%d requests:%d, want hits:2 requests:4", entries.Hits, entries.Requests)
+	}
 }
 
 func TestWeatherCacheCityStrategy(t *testing.T) {
@@ -83,5 +89,11 @@ func TestWeatherCacheCityStrategy(t *testing.T) {
 	}
 	if got := len(entries.Entries); got != 2 {
 		t.Errorf("city cache has %d entries, want 2", got)
+	}
+	if entries.Strategy != "city" {
+		t.Errorf("city cache strategy = %q, want %q", entries.Strategy, "city")
+	}
+	if entries.Hits != 2 || entries.Requests != 3 {
+		t.Errorf("city cache stats = hits:%d requests:%d, want hits:2 requests:3", entries.Hits, entries.Requests)
 	}
 }

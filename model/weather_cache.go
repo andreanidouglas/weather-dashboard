@@ -17,6 +17,7 @@ const (
 )
 
 type cacheStrategy interface {
+	name() string
 	getWeather(city string, fahrenheit bool) (bool, *Weather)
 	getWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather)
 	setWeather(city string, weather Weather, fahrenheit bool)
@@ -26,6 +27,13 @@ type cacheStrategy interface {
 // WeatherCache provides a common API for the available cache strategies.
 type WeatherCache struct {
 	strategy cacheStrategy
+	stats    *cacheStats
+}
+
+type cacheStats struct {
+	sync.Mutex
+	hits     uint64
+	requests uint64
 }
 
 type weatherCacheValue struct {
@@ -45,6 +53,14 @@ type cityCache struct {
 	weatherByCity map[string]weatherCacheValue
 }
 
+func (*coordinateCache) name() string {
+	return "coordinates"
+}
+
+func (*cityCache) name() string {
+	return "city"
+}
+
 // NewCache creates a cache using coordinate keys by default.
 func NewCache() WeatherCache {
 	return NewCacheWithStrategy(CacheByCoordinates)
@@ -57,6 +73,7 @@ func NewCacheWithStrategy(strategy CacheStrategy) WeatherCache {
 	case CacheByCity:
 		return WeatherCache{
 			strategy: &cityCache{weatherByCity: map[string]weatherCacheValue{}},
+			stats:    &cacheStats{},
 		}
 	default:
 		return WeatherCache{
@@ -64,6 +81,7 @@ func NewCacheWithStrategy(strategy CacheStrategy) WeatherCache {
 				weatherByCoord:  map[Coordinates]weatherCacheValue{},
 				cityCoordinates: map[string]Coordinates{},
 			},
+			stats: &cacheStats{},
 		}
 	}
 }
@@ -76,19 +94,33 @@ func cacheKey(city string) string {
 // GetWeather looks up a city. Its first return value is true on a cache hit and
 // false on a miss.
 func (w *WeatherCache) GetWeather(city string, fahrenheit bool) (bool, *Weather) {
-	return w.strategy.getWeather(city, fahrenheit)
+	hit, weather := w.strategy.getWeather(city, fahrenheit)
+	w.recordLookup(hit)
+	return hit, weather
 }
 
 // GetWeatherByCoordinates looks up floored coordinates. Its first return value
 // is true on a cache hit and false on a miss. The city-key strategy always
 // returns a miss here.
 func (w *WeatherCache) GetWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather) {
-	return w.strategy.getWeatherByCoordinates(coordinates, fahrenheit)
+	hit, weather := w.strategy.getWeatherByCoordinates(coordinates, fahrenheit)
+	w.recordLookup(hit)
+	return hit, weather
 }
 
 // SetWeather stores a result using the configured cache strategy.
 func (w *WeatherCache) SetWeather(city string, weather Weather, fahrenheit bool) {
 	w.strategy.setWeather(city, weather, fahrenheit)
+}
+
+func (w *WeatherCache) recordLookup(hit bool) {
+	w.stats.Lock()
+	defer w.stats.Unlock()
+
+	w.stats.requests++
+	if hit {
+		w.stats.hits++
+	}
 }
 
 func (c *coordinateCache) getWeather(city string, fahrenheit bool) (bool, *Weather) {
@@ -200,10 +232,27 @@ func newWeatherCacheValue(weather Weather, fahrenheit bool) (weatherCacheValue, 
 	}, weather.Coordinates
 }
 
+// Cache is the snapshot returned by the cache inspection endpoint. Requests
+// counts cache lookups; hits counts successful lookups since cache creation.
 type Cache struct {
-	Entries []weatherCacheValue `json:"entries"`
+	Strategy string              `json:"strategy"`
+	Hits     uint64              `json:"hits"`
+	Requests uint64              `json:"requests"`
+	Entries  []weatherCacheValue `json:"entries"`
 }
 
 func GetCache(cache *WeatherCache) (Cache, error) {
-	return Cache{Entries: cache.strategy.entries()}, nil
+	hits, requests := cache.stats.snapshot()
+	return Cache{
+		Strategy: cache.strategy.name(),
+		Hits:     hits,
+		Requests: requests,
+		Entries:  cache.strategy.entries(),
+	}, nil
+}
+
+func (s *cacheStats) snapshot() (uint64, uint64) {
+	s.Lock()
+	defer s.Unlock()
+	return s.hits, s.requests
 }

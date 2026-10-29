@@ -301,12 +301,25 @@ func TestHandleCache(t *testing.T) {
 	if len(empty.Entries) != 0 {
 		t.Fatalf("expected empty cache, got %d entries", len(empty.Entries))
 	}
+	if empty.Strategy != "coordinates" || empty.Hits != 0 || empty.Requests != 0 {
+		t.Errorf("initial cache status = strategy:%q hits:%d requests:%d, want coordinates/0/0",
+			empty.Strategy,
+			empty.Hits,
+			empty.Requests,
+		)
+	}
 
 	// Requesting weather should populate the cache.
-	_, err = http.Get(server.URL + "/api/S%C3%A3o%20Paulo")
+	weatherResp, err := http.Get(server.URL + "/api/S%C3%A3o%20Paulo")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	weatherResp.Body.Close()
+	weatherResp, err = http.Get(server.URL + "/api/S%C3%A3o%20Paulo")
+	if err != nil {
+		t.Fatalf("unexpected error on cached weather request: %v", err)
+	}
+	weatherResp.Body.Close()
 
 	resp, err = http.Get(server.URL + "/api/cache")
 	if err != nil {
@@ -321,6 +334,13 @@ func TestHandleCache(t *testing.T) {
 	}
 	if len(cache.Entries) != 1 {
 		t.Fatalf("expected 1 cache entry, got %d", len(cache.Entries))
+	}
+	if cache.Strategy != "coordinates" || cache.Hits != 1 || cache.Requests != 2 {
+		t.Errorf("cache status = strategy:%q hits:%d requests:%d, want coordinates/1/2",
+			cache.Strategy,
+			cache.Hits,
+			cache.Requests,
+		)
 	}
 }
 
