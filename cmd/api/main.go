@@ -20,6 +20,7 @@ func main() {
 	log.Printf("Mode standalone: %v", cfg.Standalone)
 
 	cache := model.NewCache()
+	defer cache.Close()
 	h := router.NewHandler(cfg.Standalone, &model.ApiContext{Key: cfg.APIKey}, &cache)
 
 	s := &http.Server{
@@ -32,5 +33,8 @@ func main() {
 	}
 
 	log.Printf("Running server at: %s", config.Addr)
-	log.Fatal(s.ListenAndServe())
+	if err := s.ListenAndServe(); err != nil {
+		cache.Close()
+		log.Fatal(err)
+	}
 }

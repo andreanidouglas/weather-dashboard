@@ -56,6 +56,7 @@ func setup(t *testing.T) (*router.Handler, *httptest.Server, func()) {
 
 	cleanup := func() {
 		owm.Close()
+		cache.Close()
 		model.WeatherDataURL = origWeatherURL
 		model.GeocodeURL = origGeocodeURL
 	}

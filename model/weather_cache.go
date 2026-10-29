@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const cacheCleanupInterval = 3 * time.Second
+
 // CacheStrategy controls how weather entries are keyed.
 type CacheStrategy uint8
 
@@ -22,12 +24,20 @@ type cacheStrategy interface {
 	getWeatherByCoordinates(coordinates Coordinates, fahrenheit bool) (bool, *Weather)
 	setWeather(city string, weather Weather, fahrenheit bool)
 	entries() []weatherCacheValue
+	deleteExpired(now time.Time)
 }
 
 // WeatherCache provides a common API for the available cache strategies.
 type WeatherCache struct {
 	strategy cacheStrategy
 	stats    *cacheStats
+	sweeper  *cacheSweeper
+}
+
+type cacheSweeper struct {
+	stop chan struct{}
+	done chan struct{}
+	once sync.Once
 }
 
 type cacheStats struct {
@@ -69,21 +79,27 @@ func NewCache() WeatherCache {
 // NewCacheWithStrategy creates a cache using the requested key strategy.
 // Unknown strategies default to coordinate keys.
 func NewCacheWithStrategy(strategy CacheStrategy) WeatherCache {
+	var implementation cacheStrategy
 	switch strategy {
 	case CacheByCity:
-		return WeatherCache{
-			strategy: &cityCache{weatherByCity: map[string]weatherCacheValue{}},
-			stats:    &cacheStats{},
-		}
+		implementation = &cityCache{weatherByCity: map[string]weatherCacheValue{}}
 	default:
-		return WeatherCache{
-			strategy: &coordinateCache{
-				weatherByCoord:  map[Coordinates]weatherCacheValue{},
-				cityCoordinates: map[string]Coordinates{},
-			},
-			stats: &cacheStats{},
+		implementation = &coordinateCache{
+			weatherByCoord:  map[Coordinates]weatherCacheValue{},
+			cityCoordinates: map[string]Coordinates{},
 		}
 	}
+
+	cache := WeatherCache{
+		strategy: implementation,
+		stats:    &cacheStats{},
+		sweeper: &cacheSweeper{
+			stop: make(chan struct{}),
+			done: make(chan struct{}),
+		},
+	}
+	go cache.runSweeper()
+	return cache
 }
 
 // cacheKey normalizes the requested city so " Rome " and "rome" share an entry.
@@ -111,6 +127,29 @@ func (w *WeatherCache) GetWeatherByCoordinates(coordinates Coordinates, fahrenhe
 // SetWeather stores a result using the configured cache strategy.
 func (w *WeatherCache) SetWeather(city string, weather Weather, fahrenheit bool) {
 	w.strategy.setWeather(city, weather, fahrenheit)
+}
+
+// Close stops the periodic expired-entry sweeper.
+func (w *WeatherCache) Close() {
+	w.sweeper.once.Do(func() {
+		close(w.sweeper.stop)
+	})
+	<-w.sweeper.done
+}
+
+func (w *WeatherCache) runSweeper() {
+	ticker := time.NewTicker(cacheCleanupInterval)
+	defer ticker.Stop()
+	defer close(w.sweeper.done)
+
+	for {
+		select {
+		case now := <-ticker.C:
+			w.strategy.deleteExpired(now)
+		case <-w.sweeper.stop:
+			return
+		}
+	}
 }
 
 func (w *WeatherCache) recordLookup(hit bool) {
@@ -167,6 +206,22 @@ func (c *coordinateCache) entries() []weatherCacheValue {
 	return entries
 }
 
+func (c *coordinateCache) deleteExpired(now time.Time) {
+	c.Lock()
+	defer c.Unlock()
+
+	for coordinates, entry := range c.weatherByCoord {
+		if entry.Valid_until.Before(now) {
+			delete(c.weatherByCoord, coordinates)
+		}
+	}
+	for city, coordinates := range c.cityCoordinates {
+		if _, exists := c.weatherByCoord[coordinates]; !exists {
+			delete(c.cityCoordinates, city)
+		}
+	}
+}
+
 func (c *cityCache) getWeather(city string, fahrenheit bool) (bool, *Weather) {
 	c.RLock()
 	defer c.RUnlock()
@@ -196,6 +251,17 @@ func (c *cityCache) entries() []weatherCacheValue {
 		entries = append(entries, value)
 	}
 	return entries
+}
+
+func (c *cityCache) deleteExpired(now time.Time) {
+	c.Lock()
+	defer c.Unlock()
+
+	for city, entry := range c.weatherByCity {
+		if entry.Valid_until.Before(now) {
+			delete(c.weatherByCity, city)
+		}
+	}
 }
 
 func cachedWeather(cache weatherCacheValue, exists bool, fahrenheit bool) (bool, *Weather) {

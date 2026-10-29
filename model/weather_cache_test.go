@@ -1,9 +1,13 @@
 package model
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestWeatherCacheCoordinateStrategy(t *testing.T) {
 	cache := NewCache()
+	t.Cleanup(cache.Close)
 	if hit, weather := cache.GetWeather("unknown", false); hit || weather != nil {
 		t.Fatalf("missing city lookup = (%v, %v), want a miss", hit, weather)
 	}
@@ -51,6 +55,7 @@ func TestWeatherCacheCoordinateStrategy(t *testing.T) {
 
 func TestWeatherCacheCityStrategy(t *testing.T) {
 	cache := NewCacheWithStrategy(CacheByCity)
+	t.Cleanup(cache.Close)
 	rome := Weather{
 		Coordinates: Coordinates{Lat: 41.9028, Lon: 12.4964},
 		City:        "Rome",
@@ -95,5 +100,108 @@ func TestWeatherCacheCityStrategy(t *testing.T) {
 	}
 	if entries.Hits != 2 || entries.Requests != 3 {
 		t.Errorf("city cache stats = hits:%d requests:%d, want hits:2 requests:3", entries.Hits, entries.Requests)
+	}
+}
+
+func TestCacheStrategiesDeleteExpiredEntries(t *testing.T) {
+	tests := []struct {
+		name     string
+		strategy CacheStrategy
+	}{
+		{name: "coordinates", strategy: CacheByCoordinates},
+		{name: "city", strategy: CacheByCity},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache := NewCacheWithStrategy(tt.strategy)
+			t.Cleanup(cache.Close)
+
+			weatherByCity := map[string]Weather{
+				"expired": {
+					Coordinates: Coordinates{Lat: 10.25, Lon: 20.5},
+					City:        "Expired",
+				},
+				"boundary": {
+					Coordinates: Coordinates{Lat: 11.25, Lon: 21.5},
+					City:        "Boundary",
+				},
+				"valid": {
+					Coordinates: Coordinates{Lat: 12.25, Lon: 22.5},
+					City:        "Valid",
+				},
+			}
+			for city, weather := range weatherByCity {
+				cache.SetWeather(city, weather, false)
+			}
+
+			scanTime := time.Now()
+			setCacheExpiry(&cache, "expired", weatherByCity["expired"].Coordinates, scanTime.Add(-time.Nanosecond))
+			setCacheExpiry(&cache, "boundary", weatherByCity["boundary"].Coordinates, scanTime)
+			setCacheExpiry(&cache, "valid", weatherByCity["valid"].Coordinates, scanTime.Add(time.Hour))
+
+			cache.strategy.deleteExpired(scanTime)
+
+			entries, err := GetCache(&cache)
+			if err != nil {
+				t.Fatalf("get cache entries: %v", err)
+			}
+			if got := len(entries.Entries); got != 2 {
+				t.Errorf("cache has %d entries after sweep, want 2", got)
+			}
+
+			if hit, _ := cache.GetWeather("expired", false); hit {
+				t.Error("expired entry was still a cache hit")
+			}
+			if !cacheContainsEntry(&cache, "boundary", weatherByCity["boundary"].Coordinates) {
+				t.Error("entry expiring exactly at scan time was deleted")
+			}
+			if hit, _ := cache.GetWeather("valid", false); !hit {
+				t.Error("unexpired entry was deleted")
+			}
+
+			if coordinateCache, ok := cache.strategy.(*coordinateCache); ok {
+				coordinateCache.RLock()
+				defer coordinateCache.RUnlock()
+				if _, exists := coordinateCache.cityCoordinates[cacheKey("expired")]; exists {
+					t.Error("expired city-to-coordinate alias was not deleted")
+				}
+			}
+		})
+	}
+}
+
+func setCacheExpiry(cache *WeatherCache, city string, coordinates Coordinates, validUntil time.Time) {
+	switch strategy := cache.strategy.(type) {
+	case *coordinateCache:
+		strategy.Lock()
+		defer strategy.Unlock()
+		key := floorCoordinates(coordinates.Lat, coordinates.Lon)
+		entry := strategy.weatherByCoord[key]
+		entry.Valid_until = validUntil
+		strategy.weatherByCoord[key] = entry
+	case *cityCache:
+		strategy.Lock()
+		defer strategy.Unlock()
+		entry := strategy.weatherByCity[cacheKey(city)]
+		entry.Valid_until = validUntil
+		strategy.weatherByCity[cacheKey(city)] = entry
+	}
+}
+
+func cacheContainsEntry(cache *WeatherCache, city string, coordinates Coordinates) bool {
+	switch strategy := cache.strategy.(type) {
+	case *coordinateCache:
+		strategy.RLock()
+		defer strategy.RUnlock()
+		_, exists := strategy.weatherByCoord[floorCoordinates(coordinates.Lat, coordinates.Lon)]
+		return exists
+	case *cityCache:
+		strategy.RLock()
+		defer strategy.RUnlock()
+		_, exists := strategy.weatherByCity[cacheKey(city)]
+		return exists
+	default:
+		return false
 	}
 }
